@@ -43,12 +43,13 @@ void initDisplay() {
   #endif
 }
 
-void editDisplay(byte which, byte h, byte m, byte s, bool colon) {
+void editDisplay(byte which, bool colon, byte h, byte m, byte s) {
+  //there will always be a which display and a colon update, but not always a time update
   byte v = 0;
-  for(byte i=0; i<=6; i++) {
+  if(h<25) for(byte i=0; i<=6; i++) {
     if(i==0) v = (h<10? 32: h/10); //no leading zero on hour
     if(i==1) v = h%10;
-    if(i==2) v = s%2; //continue; //reserved for colon
+    if(i==2) continue; //reserved for colon - handled later with drawColon()
     if(i==3) v = m/10;
     if(i==4) v = m%10;
     if(i==5) v = s/10;
@@ -72,17 +73,21 @@ void editDisplay(byte which, byte h, byte m, byte s, bool colon) {
   }
   if(which==0) { //outer time on all displays
     #ifdef HT16K33_OUTERDISP_OUTERTIME_ADDR
+    dispOO.drawColon(colon);
     dispOO.writeDisplay();
     #endif
     #ifdef HT16K33_INNERDISP_OUTERTIME_ADDR
+    dispIO.drawColon(colon);
     dispIO.writeDisplay();
     #endif
   }
   if(which==1) { //inner time on all displays
     #ifdef HT16K33_OUTERDISP_INNERTIME_ADDR
+    dispOI.drawColon(colon);
     dispOI.writeDisplay();
     #endif
     #ifdef HT16K33_INNERDISP_INNERTIME_ADDR
+    dispII.drawColon(colon);
     dispII.writeDisplay();
     #endif
   }
