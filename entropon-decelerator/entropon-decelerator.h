@@ -17,5 +17,7 @@ void cycleSession();
 void setClock(byte h, byte m, byte s);
 void updateTime(bool force=false);
 void initOutputs();
+void getTimeNow();
+void getTimeDiff(unsigned long a, unsigned long b);
 
 #endif //ENTROPON_DECELERATOR_H

@@ -108,11 +108,27 @@ bool readBtn(byte btn) {
 
 unsigned long timeOffset = 0; //converts millis() to real time of day in ms (continually adjusted vs. rtc)
 unsigned long timeStart = 0; //the real time at which the last entroponics session started
-unsigned long timeOuterLast = 0; //the outer (real) clock time, at last tick
-unsigned long timeInnerLast = 0; //the inner (fake) clock time, at last tick
-unsigned long timeInnerLastTick = 0; //the real time at which the inner clock last ticked
+//there is no timeOuter because the outer clocks keep real time, per now/millis
+unsigned long timeLast = 0;
+unsigned long timeOuterLastTick = 0; //the outer clocks' last tick
+unsigned long timeInner = 0; //the inner (fake) clock time
+unsigned long timeInnerLastTick = 0; //the inner clocks' last tick
 int innerTick = 1000; //current length of inner clock ticks, in real time ms
-byte sessionStage = 0; //0 = catchup/normal, 1 = slowing, 2 = steady slow
+byte sessionStage = 0; //0 = normal, 1 = slowing, 2 = steady slow, 3 = catching up
+
+//For the purposes of this project,
+//"time" is milliseconds since midnight.
+//So we need this fn to get time from millis, offset per RTC
+unsigned long getTimeNow() {
+  return millis(); //+timeOffset;
+}
+//And we need this one to be able to do math that rolls over as expected
+unsigned long getTimeDiff(unsigned long a, unsigned long b) {
+  //86399k-86395k = 4k
+  //2k-86395k = 7k
+  //85300k-86300k = 86400k-1000k = 85400k
+  return ((b>a? a+86400000: a)-b);
+}
 
 void cycleSession() {
   unsigned long now = millis()+timeOffset;
@@ -144,6 +160,7 @@ void cycleSession() {
       innerTick = 400;
       //pretend the tick happened per shorter timing
       timeInnerLastTick += (1000-innerTick);
+      //TODO need a thing here?
       #ifdef SHOW_SERIAL
         Serial.println();
         Serial.println(F("Catching up."));
@@ -160,20 +177,29 @@ void setClock(byte h, byte m, byte s) {
 }
 
 void updateTime(bool force) {
-  unsigned long now = millis()+timeOffset;
-  //outer clock ticks
-  if(force || (now-timeOuterLast > 1000)) { //check for half tick, which modifies colon
+  unsigned long timeNow = getTimeNow();
+
+  //outer clock
+  //look for ticks
+  if(force || (timeNow-timeOuterLastTick > 500)) { //check for half tick, which modifies colon
     bool colon = 0;
-    if(force || (now-timeOuterLast > 1000)) { //check for full tick, which modifies time
+    if(force || (timeNow-timeOuterLastTick > 1000)) { //check for full tick, which modifies time
       colon = 1;
-      if(force) timeOuterLast = now;
-      else timeOuterLast += 1000;
+      if(force) timeOuterLastTick = now;
+      else timeOuterLastTick = (now/1000)*1000; //+= 1000;
+      //TODO lavet pulse
     } //end full tick
     //unlike with inner time, outer time is real time, so we can derive display directly from real timestamps
-    editDisplay(0,(timeOuterLast%86400000)/3600000,(timeOuterLast%3600000)/60000,(timeOuterLast%60000)/1000,colon);
+    #ifdef DISPLAY_MILS //minutes, seconds, and mils
+    editDisplay(0,(timeNow%3600000)/60000,(timeNow%60000)/1000,(now%1000)/10,colon);
+    #else
+    editDisplay(0,(now%86400000)/3600000,(now%3600000)/60000,(now%60000)/1000,colon);
+    #endif
   }
-  //inner clock ticks
-  if(force || (now-timeInnerLastTick > innerTick)) { //check for half tick, which modifies colon
+  //inner clock
+  //TODO move the inner clock forward incrementally - will need to handle rollovers
+  //look for tickets
+  if(force || (timeNow-timeInnerLastTick > innerTick/2)) { //check for half tick, which modifies colon
     bool colon = 0;
     if(force || ((now-timeInnerLastTick > innerTick) && (now-timeInnerLastTick < 10000))) { //check for full tick, which modifies time
       colon = 1;
@@ -192,15 +218,15 @@ void updateTime(bool force) {
         //so that if we're using lavet steppers, they can stabilize
         #ifdef SHOW_SERIAL
           //Serial.print(F("Inner clock diff: "));
-          //Serial.println(timeInnerLast - timeOuterLast,DEC);
+          //Serial.println(timeInnerLast - timeOuterLastTick,DEC);
         #endif
 
-        //(1000 - (now - timeOuterLast > 1000? 1000: now - timeOuterLast)) > innerTick
+        //(1000 - (now - timeOuterLastTick > 1000? 1000: now - timeOuterLastTick)) > innerTick
 
         //if we've caught up, and also caught our breath (next outer tick is further away than next fast inner tick)
-        if((timeInnerLast - timeOuterLast < 10000) && (now-timeOuterLast < 1000-innerTick)) {
-          timeInnerLast = timeOuterLast;
-          timeInnerLastTick = timeOuterLast;
+        if((timeInnerLast - timeOuterLastTick < 10000) && (now-timeOuterLastTick < 1000-innerTick)) {
+          timeInnerLast = timeOuterLastTick;
+          timeInnerLastTick = timeOuterLastTick;
           innerTick = 1000;
           #ifdef SHOW_SERIAL
             Serial.println();
@@ -249,7 +275,7 @@ void updateTime(bool force) {
         */
 
       } //end catchup
-      unsigned long diff = timeOuterLast-timeInnerLast; //ehhh
+      unsigned long diff = timeOuterLastTick-timeInnerLast; //ehhh
       editDisplay(2,(diff%86400000)/3600000,(diff%3600000)/60000,(diff%60000)/1000,1);
     } //end full tick
     editDisplay(1,(timeInnerLast%86400000)/3600000,(timeInnerLast%3600000)/60000,(timeInnerLast%60000)/1000,colon);
