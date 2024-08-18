@@ -17,11 +17,17 @@ Adafruit_7segment dispIO = Adafruit_7segment();
 #ifdef HT16K33_INNERDISP_INNERTIME_ADDR
 Adafruit_7segment dispII = Adafruit_7segment();
 #endif
+#ifdef HT16K33_INNERDISP_DIFF_ADDR
+Adafruit_7segment dispID = Adafruit_7segment();
+#endif
 #ifdef HT16K33_OUTERDISP_OUTERTIME_ADDR
 Adafruit_7segment dispOO = Adafruit_7segment();
 #endif
 #ifdef HT16K33_OUTERDISP_INNERTIME_ADDR
 Adafruit_7segment dispOI = Adafruit_7segment();
+#endif
+#ifdef HT16K33_OUTERDISP_DIFF_ADDR
+Adafruit_7segment dispOD = Adafruit_7segment();
 #endif
 
 void initDisplay() {
@@ -33,6 +39,10 @@ void initDisplay() {
   dispII.begin(HT16K33_INNERDISP_INNERTIME_ADDR);
   dispII.setBrightness(HT16K33_BRIGHTNESS);
   #endif
+  #ifdef HT16K33_INNERDISP_DIFF_ADDR
+  dispID.begin(HT16K33_INNERDISP_DIFF_ADDR);
+  dispID.setBrightness(HT16K33_BRIGHTNESS);
+  #endif
   #ifdef HT16K33_OUTERDISP_OUTERTIME_ADDR
   dispOO.begin(HT16K33_OUTERDISP_OUTERTIME_ADDR);
   dispOO.setBrightness(HT16K33_BRIGHTNESS);
@@ -41,54 +51,108 @@ void initDisplay() {
   dispOI.begin(HT16K33_OUTERDISP_INNERTIME_ADDR);
   dispOI.setBrightness(HT16K33_BRIGHTNESS);
   #endif
+  #ifdef HT16K33_OUTERDISP_DIFF_ADDR
+  dispOD.begin(HT16K33_OUTERDISP_DIFF_ADDR);
+  dispOD.setBrightness(HT16K33_BRIGHTNESS);
+  #endif
 }
 
-void editDisplay(byte which, bool colon, byte h, byte m, byte s) {
-  //there will always be a which display and a colon update, but not always a time update
-  byte v = 0;
-  if(h<25) for(byte i=0; i<=6; i++) {
-    if(i==0) v = (h<10? 32: h/10); //no leading zero on hour
-    if(i==1) v = h%10;
-    if(i==2) continue; //reserved for colon - handled later with drawColon()
-    if(i==3) v = m/10;
-    if(i==4) v = m%10;
-    if(i==5) v = s/10;
-    if(i==6) v = s%10;
-    if(which==0) { //outer time on all displays
-      #ifdef HT16K33_OUTERDISP_OUTERTIME_ADDR
-      dispOO.writeDigitNum(i,v,colon);
-      #endif
-      #ifdef HT16K33_INNERDISP_OUTERTIME_ADDR
-      dispIO.writeDigitNum(i,v,colon);
-      #endif
-    }
-    if(which==1) { //inner time on all displays
-      #ifdef HT16K33_OUTERDISP_INNERTIME_ADDR
-      dispOI.writeDigitNum(i,v,colon);
-      #endif
-      #ifdef HT16K33_INNERDISP_INNERTIME_ADDR
-      dispII.writeDigitNum(i,v,colon);
-      #endif
-    }
-  }
+void editDisplay(byte which, byte h, byte m, byte s, bool colon) {
+  bool use2 = 0;
   if(which==0) { //outer time on all displays
     #ifdef HT16K33_OUTERDISP_OUTERTIME_ADDR
+    #ifdef HT16K33_OUTERDISP_OUTERTIME_USE2
+    use2 = 1;
+    #else
+    use2 = 0;
     dispOO.drawColon(colon);
+    #endif
+    dispOO.writeDigitNum(0, (h<10? 32: h/10), 0);
+    dispOO.writeDigitNum(1, h%10, colon);
+    dispOO.writeDigitNum(2+!use2, m/10, 0);
+    dispOO.writeDigitNum(3+!use2, m%10, colon);
+    dispOO.writeDigitNum(5, s/10, 0);
+    dispOO.writeDigitNum(6, s%10, 0);
     dispOO.writeDisplay();
     #endif
     #ifdef HT16K33_INNERDISP_OUTERTIME_ADDR
+    #ifdef HT16K33_INNERDISP_OUTERTIME_USE2
+    use2 = 1;
+    #else
+    use2 = 0;
     dispIO.drawColon(colon);
+    #endif
+    dispIO.writeDigitNum(0, (h<10? 32: h/10), 0);
+    dispIO.writeDigitNum(1, h%10, colon);
+    dispIO.writeDigitNum(2+!use2, m/10, 0);
+    dispIO.writeDigitNum(3+!use2, m%10, colon);
+    dispIO.writeDigitNum(5, s/10, 0);
+    dispIO.writeDigitNum(6, s%10, 0);
     dispIO.writeDisplay();
     #endif
   }
   if(which==1) { //inner time on all displays
     #ifdef HT16K33_OUTERDISP_INNERTIME_ADDR
+    #ifdef HT16K33_OUTERDISP_INNERTIME_USE2
+    use2 = 1;
+    #else
+    use2 = 0;
     dispOI.drawColon(colon);
+    #endif
+    dispOI.writeDigitNum(0, (h<10? 32: h/10), 0);
+    dispOI.writeDigitNum(1, h%10, colon);
+    dispOI.writeDigitNum(2+!use2, m/10, 0);
+    dispOI.writeDigitNum(3+!use2, m%10, colon);
+    dispOI.writeDigitNum(5, s/10, 0);
+    dispOI.writeDigitNum(6, s%10, 0);
     dispOI.writeDisplay();
     #endif
     #ifdef HT16K33_INNERDISP_INNERTIME_ADDR
+    #ifdef HT16K33_INNERDISP_INNERTIME_USE2
+    use2 = 1;
+    #else
+    use2 = 0;
     dispII.drawColon(colon);
+    #endif
+    dispII.writeDigitNum(0, (h<10? 32: h/10), 0);
+    dispII.writeDigitNum(1, h%10, colon);
+    dispII.writeDigitNum(2+!use2, m/10, 0);
+    dispII.writeDigitNum(3+!use2, m%10, colon);
+    dispII.writeDigitNum(5, s/10, 0);
+    dispII.writeDigitNum(6, s%10, 0);
     dispII.writeDisplay();
+    #endif
+  }
+  if(which==2) { //diff on all displays
+    #ifdef HT16K33_OUTERDISP_DIFF_ADDR
+    #ifdef HT16K33_OUTERDISP_DIFF_USE2
+    use2 = 1;
+    #else
+    use2 = 0;
+    dispOD.drawColon(colon);
+    #endif
+    dispOD.writeDigitNum(0, (h<10? 32: h/10), 0);
+    dispOD.writeDigitNum(1, h%10, colon);
+    dispOD.writeDigitNum(2+!use2, m/10, 0);
+    dispOD.writeDigitNum(3+!use2, m%10, colon);
+    dispOD.writeDigitNum(5, s/10, 0);
+    dispOD.writeDigitNum(6, s%10, 0);
+    dispOD.writeDisplay();
+    #endif
+    #ifdef HT16K33_INNERDISP_DIFF_ADDR
+    #ifdef HT16K33_INNERDISP_DIFF_USE2
+    use2 = 1;
+    #else
+    use2 = 0;
+    dispID.drawColon(colon);
+    #endif
+    dispID.writeDigitNum(0, (h<10? 32: h/10), 0);
+    dispID.writeDigitNum(1, h%10, colon);
+    dispID.writeDigitNum(2+!use2, m/10, 0);
+    dispID.writeDigitNum(3+!use2, m%10, colon);
+    dispID.writeDigitNum(5, s/10, 0);
+    dispID.writeDigitNum(6, s%10, 0);
+    dispID.writeDisplay();
     #endif
   }
 }

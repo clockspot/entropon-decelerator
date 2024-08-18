@@ -44,7 +44,7 @@ void setup(){
   // initOutputs(); //depends on some EEPROM settings
   initInputs();
   // initNetwork();
-  updateTime();
+  updateTime(true);
 } //end setup()
 
 void loop(){
@@ -109,9 +109,7 @@ bool readBtn(byte btn) {
 unsigned long timeOffset = 0; //converts millis() to real time of day in ms (continually adjusted vs. rtc)
 unsigned long timeStart = 0; //the real time at which the last entroponics session started
 unsigned long timeOuterLast = 0; //the outer (real) clock time, at last tick
-bool timeOuterColon = 0;
 unsigned long timeInnerLast = 0; //the inner (fake) clock time, at last tick
-bool timeInnerColon = 0;
 unsigned long timeInnerLastTick = 0; //the real time at which the inner clock last ticked
 int innerTick = 1000; //current length of inner clock ticks, in real time ms
 byte sessionStage = 0; //0 = catchup/normal, 1 = slowing, 2 = steady slow
@@ -121,9 +119,10 @@ void cycleSession() {
   switch(sessionStage) {
     case 0: //catchup/normal to slowing
       sessionStage = 1;
-      innerTick = 1300;
+      innerTick = 1600;
       timeStart = now;
       #ifdef SHOW_SERIAL
+        Serial.println();
         Serial.println(F("Session started. Slowing."));
       #endif
       break;
@@ -131,6 +130,7 @@ void cycleSession() {
       sessionStage = 2;
       innerTick = 1000;
       #ifdef SHOW_SERIAL
+        Serial.println();
         Serial.println(F("Session finished. Stabilizing."));
         Serial.print(F("The patient spent "));
         Serial.print((now-timeStart)/1000,DEC),
@@ -142,7 +142,10 @@ void cycleSession() {
     default: //steady slow to catchup/normal
       sessionStage = 0;
       innerTick = 400;
+      //pretend the tick happened per shorter timing
+      timeInnerLastTick += (1000-innerTick);
       #ifdef SHOW_SERIAL
+        Serial.println();
         Serial.println(F("Catching up."));
       #endif
       break;
@@ -156,129 +159,100 @@ void setClock(byte h, byte m, byte s) {
   timeOffset = ((h*3600000)+(m*60000)+(s*1000)) - millis();
 }
 
-bool catchBreath = 0;
 void updateTime(bool force) {
   unsigned long now = millis()+timeOffset;
-  //Has there been an outer (real) time tick? (always 1000ms)
-  if(force || now-timeOuterLast > 1000) {
-    //todo modify this to catch colon changes
-    if(force) timeOuterLast = now;
-    else timeOuterLast += 1000;
+  //outer clock ticks
+  if(force || (now-timeOuterLast > 1000)) { //check for half tick, which modifies colon
+    bool colon = 0;
+    if(force || (now-timeOuterLast > 1000)) { //check for full tick, which modifies time
+      colon = 1;
+      if(force) timeOuterLast = now;
+      else timeOuterLast += 1000;
+    } //end full tick
     //unlike with inner time, outer time is real time, so we can derive display directly from real timestamps
-    byte h = (timeOuterLast%86400000)/3600000;
-    byte m = (timeOuterLast%3600000)/60000;
-    byte s = (timeOuterLast%60000)/1000;
-    #ifdef SHOW_SERIAL
-      // if(force) Serial.print(F("Outer reset at "));
-      // else Serial.print(F("Outer tick at "));
-      // Serial.print(h,DEC);
-      // Serial.print(F(":"));
-      // if(m<10) Serial.print(F("0"));
-      // Serial.print(m,DEC);
-      // Serial.print(F(":"));
-      // if(s<10) Serial.print(F("0"));
-      // Serial.print(s,DEC);
-      // Serial.println();
-    #endif
-    timeOuterColon = 1;
-    editDisplay(0,1,h,m,s);
-  } else if(timeOuterColon && now-timeOuterLast > 500) {
-    timeOuterColon = 0;
-    editDisplay(0,0);
+    editDisplay(0,(timeOuterLast%86400000)/3600000,(timeOuterLast%3600000)/60000,(timeOuterLast%60000)/1000,colon);
   }
-  //Has there been an inner (fake) time tick? (variable length)
-  if(force || now-timeInnerLastTick > innerTick) {
-    //todo modify this to catch colon changes
-    if(force) {
-      timeInnerLastTick = now; //real time
-      timeInnerLast = now; //fake time
-    } else {
-      timeInnerLastTick += innerTick; //real time
-      timeInnerLast += 1000; //fake time
-    }
-    if(sessionStage==0 && innerTick!=1000) {
-      //if we're catching up, let's see if we've caught up yet
-      //since the times are unsigned, the way to tell if fake has outstripped real is to detect a rollover (big number becomes small)
-      //but we don't want to call it caught up until the next outer tick is further away than the next inner tick
-      //so that if we're using lavet steppers, they can stabilize
-      #ifdef SHOW_SERIAL
-        // Serial.print(F("Inner clock diff: "));
-        // Serial.println(timeInnerLast - timeOuterLast,DEC);
-      #endif
-
-      //(1000 - (now - timeOuterLast > 1000? 1000: now - timeOuterLast)) > innerTick
-
-      //if we've caught up, and also caught our breath (next outer tick is further away than next fast inner tick)
-      if((timeInnerLast - timeOuterLast < 10000) && (now-timeOuterLast < 1000-innerTick)) {
-        timeInnerLast = timeOuterLast;
-        timeInnerLastTick = timeOuterLast;
-        innerTick = 1000;
-        #ifdef SHOW_SERIAL
-          Serial.println(F("Caught up."));
-        #endif
+  //inner clock ticks
+  if(force || (now-timeInnerLastTick > innerTick)) { //check for half tick, which modifies colon
+    bool colon = 0;
+    if(force || ((now-timeInnerLastTick > innerTick) && (now-timeInnerLastTick < 10000))) { //check for full tick, which modifies time
+      colon = 1;
+      if(force) {
+        timeInnerLastTick = now; //real time
+        timeInnerLast = now; //fake time
+      } else {
+        timeInnerLastTick += innerTick; //real time
+        timeInnerLast += 1000; //fake time
       }
-      /*
+      // Serial.println(now-timeInnerLastTick,DEC);
+      if(sessionStage==0 && innerTick!=1000) {
+        //if we're catching up, let's see if we've caught up yet
+        //since the times are unsigned, the way to tell if fake has outstripped real is to detect a rollover (big number becomes small)
+        //but we don't want to call it caught up until the next outer tick is further away than the next inner tick
+        //so that if we're using lavet steppers, they can stabilize
+        #ifdef SHOW_SERIAL
+          //Serial.print(F("Inner clock diff: "));
+          //Serial.println(timeInnerLast - timeOuterLast,DEC);
+        #endif
 
-      outerTick = 1000
-      innerTick = 400
+        //(1000 - (now - timeOuterLast > 1000? 1000: now - timeOuterLast)) > innerTick
 
-      if lastOuterTick was 100 ago, nextOuterTick is 900 which is greater than 400, so ok
-      if lastOuterTick was 500 ago, nextOuterTick is 500 which is greater so ok
-      if lastOuterTick was 700 ago, nextOuterTick is 300 which is greater than 400 so not ok
-      lastOuterTick needs to be less than 1000-400
+        //if we've caught up, and also caught our breath (next outer tick is further away than next fast inner tick)
+        if((timeInnerLast - timeOuterLast < 10000) && (now-timeOuterLast < 1000-innerTick)) {
+          timeInnerLast = timeOuterLast;
+          timeInnerLastTick = timeOuterLast;
+          innerTick = 1000;
+          #ifdef SHOW_SERIAL
+            Serial.println();
+            Serial.println(F("Caught up."));
+          #endif
+        }
+        /*
 
-      06
-          09
-      07
-      08
-          10
-      09
-      10
-      11  11  
+        outerTick = 1000
+        innerTick = 400
 
-      06
-          09
-      07
-      08
-          10
-      09
-      10* - tick diff is 800, we're not done, needs to be less than 
-          11
-      11! - tick diff is 200, we're done
-      12  12
+        if lastOuterTick was 100 ago, nextOuterTick is 900 which is greater than 400, so ok
+        if lastOuterTick was 500 ago, nextOuterTick is 500 which is greater so ok
+        if lastOuterTick was 700 ago, nextOuterTick is 300 which is greater than 400 so not ok
+        lastOuterTick needs to be less than 1000-400
 
-      07
-          09
-      08
-      09
-          10
-      10! - tick diff is 200, 
-      11 11
-      11
-      
-      */
+        06
+            09
+        07
+        08
+            10
+        09
+        10
+        11  11  
 
-    }
-    byte h = (timeInnerLast%86400000)/3600000;
-    byte m = (timeInnerLast%3600000)/60000;
-    byte s = (timeInnerLast%60000)/1000;
-    #ifdef SHOW_SERIAL
-      // if(force) Serial.print(F("Inner reset at "));
-      // else Serial.print(F("Inner tick at "));
-      // Serial.print(h,DEC);
-      // Serial.print(F(":"));
-      // if(m<10) Serial.print(F("0"));
-      // Serial.print(m,DEC);
-      // Serial.print(F(":"));
-      // if(s<10) Serial.print(F("0"));
-      // Serial.print(s,DEC);
-      // Serial.println();
-    #endif
-    timeInnerColon = 1;
-    editDisplay(1,1,h,m,s);
-  } else if(timeInnerColon && now-timeInnerLastTick > innerTick/2) {
-    timeInnerColon = 0;
-    editDisplay(1,0);
+        06
+            09
+        07
+        08
+            10
+        09
+        10* - tick diff is 800, we're not done, needs to be less than 
+            11
+        11! - tick diff is 200, we're done
+        12  12
+
+        07
+            09
+        08
+        09
+            10
+        10! - tick diff is 200, 
+        11 11
+        11
+        
+        */
+
+      } //end catchup
+      unsigned long diff = timeOuterLast-timeInnerLast; //ehhh
+      editDisplay(2,(diff%86400000)/3600000,(diff%3600000)/60000,(diff%60000)/1000,1);
+    } //end full tick
+    editDisplay(1,(timeInnerLast%86400000)/3600000,(timeInnerLast%3600000)/60000,(timeInnerLast%60000)/1000,colon);
   }
 }
 

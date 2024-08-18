@@ -22,13 +22,16 @@
 //and, if desired, in sevensegmentfonttable, replace 0b01111101 with 0b01111100 and 0b01101111 with 0b01100111
 //(in previous versions, in numbertable[], replace 0x7D with 0x7C and 0x6F with 0x67)
 //to remove the serifs from 6 and 9 for legibility (see http://www.harold.thimbleby.net/cv/files/seven-segment.pdf)
+//0x70 is the default addr
 #define DISPLAY_HT16K33
 #define HT16K33_BRIGHTNESS 15
-#define HT16K33_INNERDISP_OUTERTIME_ADDR 0x70 //0x70 is the default
-#define HT16K33_INNERDISP_OUTERTIME_USE2
-#define HT16K33_INNERDISP_INNERTIME_ADDR 0x72 //0x70 is the default
-// #define HT16K33_OUTERDISP_OUTERTIME_ADDR 0x71 //0x70 is the default
-// #define HT16K33_OUTERDISP_INNERTIME_ADDR 0x70 //0x70 is the default
+#define HT16K33_INNERDISP_OUTERTIME_ADDR 0x70
+//#define HT16K33_INNERDISP_OUTERTIME_USE2
+#define HT16K33_INNERDISP_INNERTIME_ADDR 0x71
+// #define HT16K33_OUTERDISP_OUTERTIME_ADDR 0x71
+// #define HT16K33_OUTERDISP_INNERTIME_ADDR 0x71
+#define HT16K33_INNERDISP_DIFF_ADDR 0x72
+#define HT16K33_INNERDISP_DIFF_USE2
 
 #define LAVET
 #define LAVET_OUTERDISP_OUTERTIME_PINEVEN

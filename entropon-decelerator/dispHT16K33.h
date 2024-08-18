@@ -2,6 +2,6 @@
 #define DISPLAY_HT16K33_H
 
 void initDisplay();
-void editDisplay(byte which, bool colon, byte h=25, byte m=0, byte s=0);
+void editDisplay(byte which, byte h=0, byte m=0, byte s=0, bool colon=1);
 
 #endif //DISPLAY_HT16K33
