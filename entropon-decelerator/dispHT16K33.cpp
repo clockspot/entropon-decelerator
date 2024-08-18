@@ -48,7 +48,7 @@ void editDisplay(byte which, byte h, byte m, byte s, bool colon) {
   for(byte i=0; i<=6; i++) {
     if(i==0) v = (h<10? 32: h/10); //no leading zero on hour
     if(i==1) v = h%10;
-    if(i==2) continue; //reserved for colon //v = s%2; //
+    if(i==2) v = s%2; //continue; //reserved for colon
     if(i==3) v = m/10;
     if(i==4) v = m%10;
     if(i==5) v = s/10;
