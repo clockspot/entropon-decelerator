@@ -1,0 +1,7 @@
+lm-*
+.DS_Store
+.vscode/
+debug.cfg
+debug_custom.json
+esp32s2.svd
+ignore
