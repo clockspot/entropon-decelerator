@@ -165,9 +165,9 @@ void setClock(byte h, byte m, byte s) {
 void updateTime(bool force) {
   unsigned long now = millis()+timeOffset;
   //outer clock ticks
-  if(force || (now-timeOuterLast > 1000)) { //check for half tick, which modifies colon
+  if(force || (now-timeOuterLast >= 500)) { //check for half tick, which modifies colon
     bool colon = 0;
-    if(force || (now-timeOuterLast > 1000)) { //check for full tick, which modifies time
+    if(force || (now-timeOuterLast >= 1000)) { //check for full tick, which modifies time
       colon = 1;
       if(force) timeOuterLast = now;
       else timeOuterLast += 1000;
@@ -177,9 +177,10 @@ void updateTime(bool force) {
 
   }
   //inner clock ticks
-  if(force || (now-timeInnerLastTick > innerTick)) { //check for half tick, which modifies colon
+  int diffSecsLast = 0;
+  if(force || (now-timeInnerLastTick >= innerTick/2)) { //check for half tick, which modifies colon
     bool colon = 0;
-    if(force || ((now-timeInnerLastTick > innerTick) && (now-timeInnerLastTick < 10000))) { //check for full tick, which modifies time
+    if(force || ((now-timeInnerLastTick >= innerTick) && (now-timeInnerLastTick < 10000))) { //check for full tick, which modifies time
       colon = 1;
       if(force) {
         timeInnerLastTick = now; //real time
