@@ -41,7 +41,7 @@ void setup(){
   // rtcInit();
   initDisplay();
   // setClock(20,0,0); //TODO restore
-  // initOutputs(); //depends on some EEPROM settings
+  initOutputs();
   initInputs();
   // initNetwork();
   updateTime(true);
@@ -113,6 +113,7 @@ unsigned long timeInnerLast = 0; //the inner (fake) clock time, at last tick
 unsigned long timeInnerLastTick = 0; //the real time at which the inner clock last ticked
 int innerTick = 1000; //current length of inner clock ticks, in real time ms
 byte sessionStage = 0; //0 = catchup/normal, 1 = slowing, 2 = steady slow
+int timeSavedSecs = 0; //accumulated time saved across all sessions
 
 void cycleSession() {
   unsigned long now = millis()+timeOffset;
@@ -143,8 +144,8 @@ void cycleSession() {
       break;
     default: //steady slow to catchup/normal
       sessionStage = 0;
-      innerTick = 400;
       displaySession(3); //will become 0 when caught up
+      innerTick = 200;
       //pretend the tick happened per shorter timing
       timeInnerLastTick += (1000-innerTick);
       #ifdef SHOW_SERIAL
@@ -164,18 +165,24 @@ void setClock(byte h, byte m, byte s) {
 
 void updateTime(bool force) {
   unsigned long now = millis()+timeOffset;
+  byte lavetUpdates = 0; //a bitmask indicating which lavet clocks to update - it allows us to hold these updates til the end, since we'll lazily use delay() to achieve the necessary pulse width
+
   //outer clock ticks
   if(force || (now-timeOuterLast >= 500)) { //check for half tick, which modifies colon
     bool colon = 0;
     if(force || (now-timeOuterLast >= 1000)) { //check for full tick, which modifies time
       colon = 1;
       if(force) timeOuterLast = now;
-      else timeOuterLast += 1000;
+      else {
+        timeOuterLast += 1000;
+        lavetUpdates += 1;
+      }
     } //end full tick
     //unlike with inner time, outer time is real time, so we can derive display directly from real timestamps
     displayOuterTime((timeOuterLast%86400000)/3600000,(timeOuterLast%3600000)/60000,(timeOuterLast%60000)/1000,colon);
 
   }
+
   //inner clock ticks
   int diffSecsLast = 0;
   if(force || (now-timeInnerLastTick >= innerTick/2)) { //check for half tick, which modifies colon
@@ -188,6 +195,7 @@ void updateTime(bool force) {
       } else {
         timeInnerLastTick += innerTick; //real time
         timeInnerLast += 1000; //fake time
+        lavetUpdates += 2;
       }
       // Serial.println(now-timeInnerLastTick,DEC);
       if(sessionStage==0 && innerTick!=1000) {
@@ -205,6 +213,7 @@ void updateTime(bool force) {
         //if we've caught up, and also caught our breath (next outer tick is further away than next fast inner tick)
         if((timeInnerLast - timeOuterLast < 10000) && (now-timeOuterLast < 1000-innerTick)) {
           timeInnerLast = timeOuterLast;
+          //TODO lavetUpdate here? could be redundant (in a good way) if the polarity is the same as last one
           timeInnerLastTick = timeOuterLast;
           innerTick = 1000;
           displaySession(0); //will become 0 when caught up
@@ -256,9 +265,68 @@ void updateTime(bool force) {
 
       } //end catchup
       unsigned long diff = timeOuterLast-timeInnerLast; //ehhh
+      if(diff/1000 > diffSecsLast) { //each time the difference grows by 1sec, update cumulative time-saved clock by a tick
+        timeSavedSecs ++;
+        lavetUpdates += 4;
+      }
       displaySecondsSaved((diff%100000)/1000); //if using just two digits - display up to 99 seconds
     } //end full tick
     displayInnerTime((timeInnerLast%86400000)/3600000,(timeInnerLast%3600000)/60000,(timeInnerLast%60000)/1000,colon);
+  }
+
+  if(lavetUpdates) {
+    #ifdef LAVET_OUTERTIME_PINEVEN
+    if(lavetUpdates & 1) { //if bit 0 is set, add to outer time
+      if((timeOuterLast/1000)%2) { //odd
+        digitalWrite(LAVET_OUTERTIME_PINODD, HIGH);
+      } else { //even
+        digitalWrite(LAVET_OUTERTIME_PINEVEN, HIGH);
+      }
+    }
+    #endif
+    
+    #ifdef LAVET_INNERTIME_PINEVEN
+    if(lavetUpdates & 2) { //if bit 1 is set, add to inner time
+      if((timeInnerLast/1000)%2) { //odd
+        digitalWrite(LAVET_INNERTIME_PINODD, HIGH);
+      } else { //even
+        digitalWrite(LAVET_INNERTIME_PINEVEN, HIGH);
+      }
+    }
+    #endif
+    
+    #ifdef LAVET_SAVEDTIME_PINEVEN
+    if(lavetUpdates & 4) { //if bit 2 is set, add to saved time
+      if(timeSavedSecs%2) { //odd
+        digitalWrite(LAVET_SAVEDTIME_PINODD, HIGH);
+      } else { //even
+        digitalWrite(LAVET_SAVEDTIME_PINEVEN, HIGH);
+      }
+    }
+    #endif
+
+    delay(LAVET_DELAY); //arduino party foul
+
+    //clear flags and pins
+    lavetUpdates = 0;
+    #ifdef LAVET_OUTERTIME_PINEVEN
+    digitalWrite(LAVET_OUTERTIME_PINEVEN, LOW);
+    #endif
+    #ifdef LAVET_OUTERTIME_PINODD
+    digitalWrite(LAVET_OUTERTIME_PINODD, LOW);
+    #endif
+    #ifdef LAVET_INNERTIME_PINEVEN
+    digitalWrite(LAVET_INNERTIME_PINEVEN, LOW);
+    #endif
+    #ifdef LAVET_INNERTIME_PINODD
+    digitalWrite(LAVET_INNERTIME_PINODD, LOW);
+    #endif
+    #ifdef LAVET_SAVEDTIME_PINEVEN
+    digitalWrite(LAVET_SAVEDTIME_PINEVEN, LOW);
+    #endif
+    #ifdef LAVET_SAVEDTIME_PINODD
+    digitalWrite(LAVET_SAVEDTIME_PINODD, LOW);
+    #endif
   }
 }
 
@@ -266,5 +334,17 @@ void updateTime(bool force) {
 ////////// Hardware outputs //////////
 
 void initOutputs() {
+  #ifdef LAVET_OUTERTIME_PINEVEN
+  pinMode(LAVET_OUTERTIME_PINEVEN, OUTPUT);
+  #endif
+  #ifdef LAVET_OUTERTIME_PINODD
+  pinMode(LAVET_OUTERTIME_PINODD, OUTPUT);
+  #endif
+  #ifdef LAVET_INNERTIME_PINEVEN
+  pinMode(LAVET_INNERTIME_PINEVEN, OUTPUT);
+  #endif
+  #ifdef LAVET_INNERTIME_PINODD
+  pinMode(LAVET_INNERTIME_PINODD, OUTPUT);
+  #endif
 //cf. arduino-clock
 }
