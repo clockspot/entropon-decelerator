@@ -1,12 +1,12 @@
 #include <arduino.h>
 #include "entropon-decelerator.h"
 
-#include "network.h"
+#include "networkNINA.h"
 #include <WiFiNINA.h>
 #include <WiFiUdp.h>
 //Needs to be able to control the RTC
-#include "rtcDS3231.h"
-#include "rtcMillis.h"
+// #include "rtcDS3231.h"
+// #include "rtcMillis.h"
 
 
 unsigned int localPort = 2390; // local port to listen for UDP packets
@@ -37,7 +37,8 @@ void cycleNetwork(){
 void networkStartWiFi(){
   Serial.print(F(" Attempting to connect to SSID: ")); Serial.println(NETWORK_SSID);
 
-  WiFi.begin(NETWORK_SSID.c_str(), NETWORK_PASS.c_str()); //WPA - hangs while connecting
+  // WiFi.begin(NETWORK_SSID.c_str(), NETWORK_PASS.c_str()); //WPA - hangs while connecting
+  WiFi.begin(NETWORK_SSID, NETWORK_PASS); //WPA - hangs while connecting
   if(WiFi.status()==WL_CONNECTED){ //did it work?
   
     Serial.print(millis()); Serial.println(F(" Connected!"));
@@ -82,8 +83,9 @@ void cueNTP(){
 }
 
 int startNTP(bool synchronous){ //Called at intervals to check for ntp time
+  #ifdef NETWORK_TRY_NTP
   //synchronous is for forced call from admin page, so we can return an error code, or 0 on successful sync
-  if(wssid==F("")) return -1; //don't try to connect if there's no creds
+  // if(wssid==F("")) return -1; //don't try to connect if there's no creds
   if(WiFi.status()!=WL_CONNECTED && WiFi.status()!=WL_AP_CONNECTED && WiFi.status()!=WL_AP_LISTENING) networkStartWiFi(); //in case the wifi dropped. Don't try if currently offering an access point.
   if(WiFi.status()!=WL_CONNECTED) return -2;
   if(ntpGoing || ntpTime) return -3; //if request going, or waiting to set to apply TODO epoch issue
@@ -116,9 +118,11 @@ int startNTP(bool synchronous){ //Called at intervals to check for ntp time
     return (success? 0: -5);
   }
   checkNTP(); //asynchronous - may as well go ahead and check in case it comes back quickly enough
+  #endif
 } //end fn startNTP
 
 bool checkNTP(){ //Called on every cycle to see if there is an ntp response to handle
+  #ifdef NETWORK_TRY_NTP
   //Return whether we had a successful sync - used for forced call from admin page, via synchronous startNTP()
   if(ntpGoing){
     //If we are waiting for a packet that hasn't arrived, wait for the next cycle, or time out
@@ -235,11 +239,14 @@ bool checkNTP(){ //Called on every cycle to see if there is an ntp response to h
     updateDisplay();
     return true; //successfully got a time and set to it
   }
+  #endif
 } //end fn checkNTP
 
 void clearNTPSyncLast(){
+  #ifdef NETWORK_TRY_NTP
   //called when other code divorces displayed time from NTP sync
   ntpSyncLast = 0;
+  #endif
 }
 
 void printCertificate(int secsSpent, int secsSaved){
@@ -279,7 +286,7 @@ void printCertificate(int secsSpent, int secsSaved){
     // String str = lc.readStringUntil('\n');  // read entire response
     // Serial.print("[Rx] ");
     // Serial.println(str);
-    lc.disconnect();
+    // lc.disconnect(); //whaaaaa
   }
   #endif
 }

@@ -144,8 +144,8 @@ void cycleSession() {
         Serial.println(F(" seconds."));
         #ifdef NETWORK_SSID
         printCertificate(
-          secsSpent = (now-timeStart)/1000,
-          secsSaved = (now-timeInnerLast)/1000
+          (now-timeStart)/1000, //secsSpent
+          (now-timeInnerLast)/1000 //secsSaved
         );
         #endif
       #endif
