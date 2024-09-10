@@ -6,7 +6,7 @@
 
 ///// Inputs and Outputs /////
 
-#define CTRL_BTN A6
+#define CTRL_BTN A7
 
 
 ///// Real-Time Clock /////
@@ -25,13 +25,11 @@
 //0x70 is the default addr
 #define DISPLAY_HT16K33
 #define HT16K33_BRIGHTNESS 15
-#define HT16K33_INNERDISP_OUTERTIME_ADDR 0x70
-//#define HT16K33_INNERDISP_OUTERTIME_USE2
-#define HT16K33_INNERDISP_INNERTIME_ADDR 0x71
+// #define HT16K33_INNERDISP_OUTERTIME_ADDR 0x72 //also two extra digits for POWER LEVEL
+#define HT16K33_INNERDISP_INNERTIME_ADDR 0x71 //also two extra digits for DIFF
 // #define HT16K33_OUTERDISP_OUTERTIME_ADDR 0x71
 // #define HT16K33_OUTERDISP_INNERTIME_ADDR 0x71
-#define HT16K33_INNERDISP_DIFF_ADDR 0x72
-#define HT16K33_INNERDISP_DIFF_USE2
+//removed use2
 
 #define LAVET
 #define LAVET_OUTERDISP_OUTERTIME_PINEVEN

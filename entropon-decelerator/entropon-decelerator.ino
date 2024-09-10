@@ -119,6 +119,7 @@ void cycleSession() {
   switch(sessionStage) {
     case 0: //catchup/normal to slowing
       sessionStage = 1;
+      displaySession(1);
       innerTick = 1600;
       timeStart = now;
       #ifdef SHOW_SERIAL
@@ -128,6 +129,7 @@ void cycleSession() {
       break;
     case 1: //slowing to steady slow
       sessionStage = 2;
+      displaySession(2);
       innerTick = 1000;
       #ifdef SHOW_SERIAL
         Serial.println();
@@ -135,13 +137,14 @@ void cycleSession() {
         Serial.print(F("The patient spent "));
         Serial.print((now-timeStart)/1000,DEC),
         Serial.print(F(" seconds to save "));
-        Serial.print((now-timeInnerLast)/1000,DEC);
+        Serial.print((now-timeInnerLast)/1000,DEC); //TODO this is wrong compared to the display
         Serial.println(F(" seconds."));
       #endif
       break;
     default: //steady slow to catchup/normal
       sessionStage = 0;
       innerTick = 400;
+      displaySession(3); //will become 0 when caught up
       //pretend the tick happened per shorter timing
       timeInnerLastTick += (1000-innerTick);
       #ifdef SHOW_SERIAL
@@ -170,7 +173,8 @@ void updateTime(bool force) {
       else timeOuterLast += 1000;
     } //end full tick
     //unlike with inner time, outer time is real time, so we can derive display directly from real timestamps
-    editDisplay(0,(timeOuterLast%86400000)/3600000,(timeOuterLast%3600000)/60000,(timeOuterLast%60000)/1000,colon);
+    displayOuterTime((timeOuterLast%86400000)/3600000,(timeOuterLast%3600000)/60000,(timeOuterLast%60000)/1000,colon);
+
   }
   //inner clock ticks
   if(force || (now-timeInnerLastTick > innerTick)) { //check for half tick, which modifies colon
@@ -202,6 +206,7 @@ void updateTime(bool force) {
           timeInnerLast = timeOuterLast;
           timeInnerLastTick = timeOuterLast;
           innerTick = 1000;
+          displaySession(0); //will become 0 when caught up
           #ifdef SHOW_SERIAL
             Serial.println();
             Serial.println(F("Caught up."));
@@ -250,9 +255,9 @@ void updateTime(bool force) {
 
       } //end catchup
       unsigned long diff = timeOuterLast-timeInnerLast; //ehhh
-      editDisplay(2,(diff%86400000)/3600000,(diff%3600000)/60000,(diff%60000)/1000,1);
+      displaySecondsSaved((diff%100000)/1000); //if using just two digits - display up to 99 seconds
     } //end full tick
-    editDisplay(1,(timeInnerLast%86400000)/3600000,(timeInnerLast%3600000)/60000,(timeInnerLast%60000)/1000,colon);
+    displayInnerTime((timeInnerLast%86400000)/3600000,(timeInnerLast%3600000)/60000,(timeInnerLast%60000)/1000,colon);
   }
 }
 
