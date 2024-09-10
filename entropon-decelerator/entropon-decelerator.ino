@@ -38,12 +38,14 @@ void setup(){
     #endif
     Serial.println(F("Hello world"));
   #endif
-  // rtcInit();
+  // initRTC();
   initDisplay();
   // setClock(20,0,0); //TODO restore
   initOutputs();
   initInputs();
-  // initNetwork();
+  #ifdef NETWORK_SSID
+  initNetwork();
+  #endif
   updateTime(true);
 } //end setup()
 
@@ -140,6 +142,12 @@ void cycleSession() {
         Serial.print(F(" seconds to save "));
         Serial.print((now-timeInnerLast)/1000,DEC); //TODO this is wrong compared to the display
         Serial.println(F(" seconds."));
+        #ifdef NETWORK_SSID
+        printCertificate(
+          secsSpent = (now-timeStart)/1000,
+          secsSaved = (now-timeInnerLast)/1000
+        );
+        #endif
       #endif
       break;
     default: //steady slow to catchup/normal
