@@ -3,6 +3,7 @@
 #ifndef CONFIG
 #define CONFIG
 
+#define SHOW_SERIAL
 
 ///// Inputs and Outputs /////
 

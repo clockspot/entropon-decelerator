@@ -258,23 +258,33 @@ void printCertificate(int secsSpent, int secsSaved){
 
       lc.print(F("<F12><RC15,122><BS57,70>Entroponics<F9><RC25,730>TM"));
 
-      lc.print(F("<RC120,20><LT2><HX100><F11><RC95,130><BS24,20>Certificate of Completion<RC120,750><LT2><HX100>"));
+      lc.print(F("<RC120,20><LT2><HX80><F11><RC95,0><CTR850>~Certificate of Completion~<RC120,770><LT2><HX80>"));
 
-      lc.print(F("<F3><RC150,20><BS20,20>I spent "));
+      lc.print(F("<F3><RC150,60>I spent "));
       lc.print(secsSpent,DEC);
+      lc.print(F(" second"));
       if(secsSpent!=1) lc.print(F("s"));
 
       lc.print(F(" to save "));
       lc.print(secsSaved,DEC);
+      lc.print(F(" second"));
       if(secsSaved!=1) lc.print(F("s"));
 
-      lc.print(F("<F3><RC185,20><BS20,20>in the Entropon Deceleration Chamber<F9><RC185,780>TM"));
+      lc.print(F("<F3><RC185,70>in the Entropon Deceleration Chamber<F9><RC185,790>TM"));
 
-      lc.print(F("<F9><RC225,20>at the Holistic Quantum Activation Art Expo   at Vox Populi<F2><RC220,580>TM"));
+      lc.print(F("<F9><RC228,0><CTR850>~at the Holistic Quantum Activation Art Expo~<F2><RC227,705>TM"));
 
-      lc.print(F("<F9><RC255,20>Philadelphia, PA  -  September 20, 2024"));
+      lc.print(F("<F9><RC255,0><CTR850>~Vox Populi, Philadelphia, PA - September 20, 2024~"));
 
-      lc.print(F("<RC290,20><LT2><HX830><F11><RC305,130><BS24,20>Yesterday's Time... Today<F9><RC305,730>TM"));
+      lc.print(F("<RC290,20><LT2><HX830><F11><RC305,0><CTR850>~"));
+      unsigned long mils = millis();
+      switch(mils % 4) {
+        case 0: lc.print(F("Yesterday's Time...Today!")); break;
+        case 1: lc.print(F("You're Not My Father, Time!")); break;
+        case 2: lc.print(F("Retake Your Time!")); break;
+        case 3: lc.print(F("It's Your Time to Unwind")); break;
+      }
+      lc.print(F("~"));
 
       lc.print(F("<RC370,20><LT2><HX250><F9><RC360,280><BS20,15>entroponics.com<RC370,600><LT2><HX250>"));
 
