@@ -9,6 +9,10 @@
 
 //There will be displays of inside and outside time,
 //which may be in multiple locations (inner or outer)
+//Controllers for outside time also displays power level
+//Controllers for inside time also displays seconds saved
+
+#define LEADING_ZERO 32 //0 for zero, 32 for blank
 
 //These are the display hardware
 #ifdef HT16K33_INNERDISP_OUTERTIME_ADDR
@@ -43,49 +47,142 @@ void initDisplay() {
   #endif
 }
 
-void editDisplay(byte which, byte h, byte m, byte s, bool colon) {
-  byte v = 0;
-  for(byte i=0; i<=6; i++) {
-    if(i==0) v = (h<10? 32: h/10); //no leading zero on hour
-    if(i==1) v = h%10;
-    if(i==2) continue; //reserved for colon //v = s%2; //
-    if(i==3) v = m/10;
-    if(i==4) v = m%10;
-    if(i==5) v = s/10;
-    if(i==6) v = s%10;
-    if(which==0) { //outer time on all displays
-      #ifdef HT16K33_OUTERDISP_OUTERTIME_ADDR
-      dispOO.writeDigitNum(i,v,colon);
-      #endif
-      #ifdef HT16K33_INNERDISP_OUTERTIME_ADDR
-      dispIO.writeDigitNum(i,v,colon);
-      #endif
-    }
-    if(which==1) { //inner time on all displays
-      #ifdef HT16K33_OUTERDISP_INNERTIME_ADDR
-      dispOI.writeDigitNum(i,v,colon);
-      #endif
-      #ifdef HT16K33_INNERDISP_INNERTIME_ADDR
-      dispII.writeDigitNum(i,v,colon);
-      #endif
-    }
+void displayOuterTime(byte h, byte m, byte s, bool colon) {
+  #ifdef HT16K33_OUTERDISP_OUTERTIME_ADDR
+  // dispOO.writeDigitNum(0, (h<10? LEADING_ZERO: h/10), 0);
+  // dispOO.writeDigitNum(1, h%10, colon);
+  dispOO.writeDigitNum(0, m/10, 0);
+  dispOO.writeDigitNum(1, m%10, colon);
+  dispOO.writeDigitNum(2, s/10, 0);
+  dispOO.writeDigitNum(3, s%10, 0);
+  // dispOO.writeDigitNum(0, s%10, colon);
+  // dispOO.writeDigitNum(1, s%10, colon);
+  // dispOO.writeDigitNum(2, s%10, colon);
+  // dispOO.writeDigitNum(3, s%10, colon);
+  // dispOO.writeDigitNum(4, s%10, colon);
+  // dispOO.writeDigitNum(5, s%10, colon);
+  dispOO.writeDisplay();
+  #endif
+  #ifdef HT16K33_INNERDISP_OUTERTIME_ADDR
+  dispIO.writeDigitNum(0, (h<10? LEADING_ZERO: h/10), 0);
+  dispIO.writeDigitNum(1, h%10, colon);
+  dispIO.writeDigitNum(2, m/10, 0);
+  dispIO.writeDigitNum(3, m%10, colon);
+  dispIO.writeDigitNum(4, s/10, 0);
+  dispIO.writeDigitNum(5, s%10, 0);
+  // dispIO.writeDigitNum(0, s%10, colon);
+  // dispIO.writeDigitNum(1, s%10, colon);
+  // dispIO.writeDigitNum(2, s%10, colon);
+  // dispIO.writeDigitNum(3, s%10, colon);
+  // dispIO.writeDigitNum(4, s%10, colon);
+  // dispIO.writeDigitNum(5, s%10, colon);
+  // dispIO.writeDigitNum(6, s%10, colon);
+  // dispIO.writeDigitNum(7, s%10, colon);
+  dispIO.writeDisplay();
+  #endif
+}
+
+void displayInnerTime(byte h, byte m, byte s, bool colon) {
+  // #ifdef HT16K33_OUTERDISP_INNERTIME_ADDR
+  // dispOI.writeDigitNum(0, (h<10? 32: h/10), 0);
+  // dispOI.writeDigitNum(1, h%10, colon);
+  // dispOI.writeDigitNum(2, m/10, 0);
+  // dispOI.writeDigitNum(3, m%10, colon);
+  // dispOI.writeDigitNum(4, s/10, 0);
+  // dispOI.writeDigitNum(5, s%10, 0);
+  // dispOI.writeDisplay();
+  // #endif
+  #ifdef HT16K33_INNERDISP_INNERTIME_ADDR
+  dispII.writeDigitNum(0, (h<10? LEADING_ZERO: h/10), 0);
+  dispII.writeDigitNum(1, h%10, colon);
+  dispII.writeDigitNum(2, m/10, 0);
+  dispII.writeDigitNum(3, m%10, colon);
+  dispII.writeDigitNum(4, s/10, 0);
+  dispII.writeDigitNum(5, s%10, 0);
+  // dispII.writeDigitNum(0, s%10, colon);
+  // dispII.writeDigitNum(1, s%10, colon);
+  // dispII.writeDigitNum(2, s%10, colon);
+  // dispII.writeDigitNum(3, s%10, colon);
+  // dispII.writeDigitNum(4, s%10, colon);
+  // dispII.writeDigitNum(5, s%10, colon);
+  dispII.writeDisplay();
+  #endif
+  //Adafruit 1.2" display
+  #ifdef HT16K33_OUTERDISP_INNERTIME_ADDR
+  dispOI.drawColon(colon);
+  dispOI.writeDigitNum(0, m/10, 0);
+  dispOI.writeDigitNum(1, m%10, colon);
+  dispOI.writeDigitNum(3, s/10, 0);
+  dispOI.writeDigitNum(4, s%10, 0);
+  dispOI.writeDisplay();
+  #endif
+}
+
+void displayPowerLevel(byte p) {
+  //Controllers for inside time also display power level
+  #ifdef HT16K33_OUTERDISP_OUTERTIME_ADDR
+  dispOO.writeDigitNum(6, (p<10? LEADING_ZERO: p/10), 0); //TODO leading zero or nah?
+  dispOO.writeDigitNum(7, p%10, 0); //TODO could decimal to indicate power state or such
+  dispOO.writeDisplay();
+  #endif
+  #ifdef HT16K33_INNERDISP_OUTERTIME_ADDR
+  dispIO.writeDigitNum(6, (p<10? LEADING_ZERO: p/10), 0);
+  dispIO.writeDigitNum(7, p%10, 0);
+  dispIO.writeDisplay();
+  #endif
+}
+
+void displaySession(byte s) {
+  //Translates from session stage to state
+  switch(s) {
+    case 0: default: //normal, clocks match
+      displayState(32,32,1,1); //".."
+      break;
+    case 1: //slow
+      displayState(79,110); //"On"
+      break;
+    case 2: //normal, inner clock is slow
+      displayState(45,45); //"--"
+      break;
+    case 3: //fast forward
+      displayState(70,70); //"FF"
+      break;
   }
-  if(which==0) { //outer time on all displays
-    #ifdef HT16K33_OUTERDISP_OUTERTIME_ADDR
-    dispOO.writeDisplay();
-    #endif
-    #ifdef HT16K33_INNERDISP_OUTERTIME_ADDR
-    dispIO.writeDisplay();
-    #endif
-  }
-  if(which==1) { //inner time on all displays
-    #ifdef HT16K33_OUTERDISP_INNERTIME_ADDR
-    dispOI.writeDisplay();
-    #endif
-    #ifdef HT16K33_INNERDISP_INNERTIME_ADDR
-    dispII.writeDisplay();
-    #endif
-  }
+}
+
+void displayState(char a, char b, bool dotA, bool dotB) {
+  //Alternate use of power level display:
+  //Controllers for outside time also display state
+  #ifdef HT16K33_OUTERDISP_OUTERTIME_ADDR
+  dispOO.writeDigitAscii(4, a, dotA); //TODO leading zero or nah?
+  dispOO.writeDigitAscii(5, b, dotB); //TODO could decimal to indicate power state or such
+  dispOO.writeDisplay();
+  #endif
+  #ifdef HT16K33_INNERDISP_OUTERTIME_ADDR
+  dispIO.writeDigitAscii(6, a, dotA); //TODO leading zero or nah?
+  dispIO.writeDigitAscii(7, b, dotB); //TODO could decimal to indicate power state or such
+  dispIO.writeDisplay();
+  #endif
+  //Adafruit 1.2" display - inner time secs on second two digits.
+  #ifdef HT16K33_OUTERDISP_INNERTIME_ADDR
+  dispOI.writeDigitAscii(5, a, dotA); //TODO leading zero or nah?
+  dispOI.writeDigitAscii(6, b, dotB); //TODO could decimal to indicate power state or such
+  dispOI.writeDisplay();
+  #endif
+}
+
+void displaySecondsSaved(byte s) {
+  //Controllers for inside time also displays seconds saved
+  // #ifdef HT16K33_OUTERDISP_INNERTIME_ADDR
+  // dispOI.writeDigitNum(6, (s<10? 32: s/10), 0); //TODO leading zero or nah?
+  // dispOI.writeDigitNum(7, s%10, 0);
+  // dispOI.writeDisplay();
+  // #endif
+  // #ifdef HT16K33_INNERDISP_INNERTIME_ADDR
+  // dispII.writeDigitNum(6, (s<10? 32: s/10), 0);
+  // dispII.writeDigitNum(7, s%10, 0);
+  // dispII.writeDisplay();
+  // #endif
 }
 
 #endif //DISPLAY_HT16K33

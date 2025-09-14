@@ -10,8 +10,12 @@
 
 void setup();
 void loop();
-void startTime();
-void updateTime();
+void initInputs();
+void checkInputs();
+bool readBtn(byte btn);
+void cycleSession();
+void setClock(byte h, byte m, byte s);
+void updateTime(bool force=false);
 void initOutputs();
 
-#endif //ARDUINO_CLOCK_H
+#endif //ENTROPON_DECELERATOR_H
