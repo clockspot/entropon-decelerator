@@ -35,6 +35,7 @@ void cycleNetwork(){
 }
 
 void networkStartWiFi(){
+  #ifdef NETWORK_SSID
   Serial.print(F(" Attempting to connect to SSID: ")); Serial.println(NETWORK_SSID);
 
   // WiFi.begin(NETWORK_SSID.c_str(), NETWORK_PASS.c_str()); //WPA - hangs while connecting
@@ -50,11 +51,14 @@ void networkStartWiFi(){
     #endif
   }
   else Serial.println(F(" Wasn't able to connect."));
+  #endif
 } //end fn startWiFi
 
 void networkDisconnectWiFi(){
+  #ifdef NETWORK_SSID
   Serial.println(F("Disconnecting WiFi"));
   WiFi.end();
+  #endif
 }
 
 bool ntpCued = false;
@@ -250,17 +254,24 @@ void clearNTPSyncLast(){
 }
 
 void printCertificate(int secsSpent, int secsSaved){
+  Serial.print(F("Printing "));
+  Serial.print(secsSpent,DEC);
+  Serial.print(F("/"));
+  Serial.print(secsSaved,DEC);
+  Serial.println();
   #ifdef NETWORK_TRY_PRINT
   //https://stackoverflow.com/a/74554673
+  delay(50);
   if (lc.connect(printServer, BOCA_IP_PORT)) {
     if (lc.connected()) {
-      lc.print(F("<RC10,20><LT2><HX830>"));
+      Serial.println(F("Printing now"));
+      lc.print(F("<RC10,20><LT2><HX895>"));
 
-      lc.print(F("<F12><RC15,122><BS57,70>Entroponics<F9><RC25,730>TM"));
+      lc.print(F("<F12><RC15,157><BS57,70>Entroponics<F9><RC25,785>TM"));
 
-      lc.print(F("<RC120,20><LT2><HX80><F11><RC95,0><CTR850>~Certificate of Completion~<RC120,770><LT2><HX80>"));
+      lc.print(F("<RC120,20><LT2><HX100><F11><RC95,0><CTR920>~Certificate of Completion~<RC120,815><LT2><HX100>"));
 
-      lc.print(F("<F3><RC150,60>I spent "));
+      lc.print(F("<F3><RC150,95>I spent "));
       lc.print(secsSpent,DEC);
       lc.print(F(" second"));
       if(secsSpent!=1) lc.print(F("s"));
@@ -270,27 +281,30 @@ void printCertificate(int secsSpent, int secsSaved){
       lc.print(F(" second"));
       if(secsSaved!=1) lc.print(F("s"));
 
-      lc.print(F("<F3><RC185,70>in the Entropon Deceleration Chamber<F9><RC185,790>TM"));
+      lc.print(F("<F3><RC185,105>in the Entropon Deceleration Chamber<F9><RC185,825>TM"));
 
-      lc.print(F("<F9><RC228,0><CTR850>~at the Holistic Quantum Activation Art Expo~<F2><RC227,705>TM"));
+      lc.print(F("<F9><RC228,0><CTR920>~at the Holistic Quantum Activation Art Expo~<F2><RC227,740>TM"));
 
-      lc.print(F("<F9><RC255,0><CTR850>~Vox Populi, Philadelphia, PA - September 20, 2024~"));
+      lc.print(F("<F9><RC255,0><CTR920>~Vox Populi, Philadelphia, PA - September 20, 2024~"));
 
-      lc.print(F("<RC290,20><LT2><HX830><F11><RC305,0><CTR850>~"));
+      lc.print(F("<RC290,20><LT2><HX890><F11><RC305,0><CTR920>~"));
       unsigned long mils = millis();
       switch(mils % 4) {
         case 0: lc.print(F("Yesterday's Time...Today!")); break;
         case 1: lc.print(F("You're Not My Father, Time!")); break;
         case 2: lc.print(F("Retake Your Time!")); break;
         case 3: lc.print(F("It's Your Time to Unwind")); break;
+        default: break;
       }
       lc.print(F("~"));
 
-      lc.print(F("<RC370,20><LT2><HX250><F9><RC360,280><BS20,15>entroponics.com<RC370,600><LT2><HX250>"));
+      lc.print(F("<RC370,20><LT2><HX270><F9><RC360,320><BS20,15>entroponics.com<RC370,637><LT2><HX270>"));
 
-      lc.print(F("<RC50,900><F3>I Survived<RC85,900><F3>Entroponic<RC120,900><F3><BS16,20>Deceleration<RC155,900><F3><BS15,20>And All I Got<RC190,900><F3><BS26,20>Was This<RC230,900><F11><BS43,20>Lousy<RC280,900><F11><BS24,20>Hair Net"));
+      lc.print(F("<RC390,980><RL><F3><CTR350>~Proof of~<RC390,1020><RL><F3><CTR350>~Entroponic~<RC390,1060><RL><F3><CTR350>~Deceleration~"));
 
       lc.print(F("<p>"));
+      while(lc.available()) lc.flush();
+      lc.stop();
     }
     // while (!lc.available());                // wait for response
     // String str = lc.readStringUntil('\n');  // read entire response
