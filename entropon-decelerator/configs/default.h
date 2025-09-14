@@ -3,10 +3,11 @@
 #ifndef CONFIG
 #define CONFIG
 
+#define SHOW_SERIAL
 
 ///// Inputs and Outputs /////
 
-#define CTRL_BTN A7
+#define CTRL_BTN 8
 
 
 ///// Real-Time Clock /////
@@ -25,15 +26,15 @@
 //0x70 is the default addr
 #define DISPLAY_HT16K33
 #define HT16K33_BRIGHTNESS 15
-// #define HT16K33_INNERDISP_OUTERTIME_ADDR 0x72 //also two extra digits for POWER LEVEL
-#define HT16K33_INNERDISP_INNERTIME_ADDR 0x71 //also two extra digits for DIFF
-// #define HT16K33_OUTERDISP_OUTERTIME_ADDR 0x71
+#define HT16K33_INNERDISP_OUTERTIME_ADDR 0x72 //also two extra digits for POWER LEVEL
+#define HT16K33_INNERDISP_INNERTIME_ADDR 0x73 //also two extra digits for DIFF
+#define HT16K33_OUTERDISP_OUTERTIME_ADDR 0x70
 // #define HT16K33_OUTERDISP_INNERTIME_ADDR 0x71
 //removed use2
 
 #define LAVET
 #define LAVET_DELAY 40
-//pin registers
+// //pin registers
 #define LAVET_OUTERTIME_PINEVEN 2 //D2
 #define LAVET_OUTERTIME_PINODD 3 //D3
 #define LAVET_INNERTIME_PINEVEN 4 //D4
@@ -43,9 +44,20 @@
 
 
 ///// Network /////
+//only wpa supported (cf. other repos for wep support)
+
 // #define NETWORK_SSID "..."
 // #define NETWORK_PASS "..."
-// #include "lm-network.h"
+// #define NETWORK_TRY_NTP
+// #define NETWORK_TRY_PRINT
+#include "lm-network.h"
+
+// printer
+#define BOCA_IP_A 192
+#define BOCA_IP_B 168
+#define BOCA_IP_C 1
+#define BOCA_IP_D 244
+#define BOCA_IP_PORT 9100
 
 
 #endif

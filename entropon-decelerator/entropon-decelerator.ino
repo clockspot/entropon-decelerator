@@ -3,6 +3,7 @@
 
 #include <arduino.h>
 #include "entropon-decelerator.h"
+#include <Wire.h>
 
 ////////// Includes //////////
 
@@ -29,6 +30,9 @@
 
 void setup(){
   delay(5000); //for development, just in case it boot loops
+  Wire.begin();
+  Wire.setClock(10000);
+  // Wire.setWireTimeout();
   #ifdef SHOW_SERIAL
     Serial.begin(115200);
     #ifdef SAMD_SERIES
@@ -38,12 +42,14 @@ void setup(){
     #endif
     Serial.println(F("Hello world"));
   #endif
-  // rtcInit();
+  // initRTC();
   initDisplay();
-  // setClock(20,0,0); //TODO restore
+  // setClock(6,30,0); //TODO restore
   initOutputs();
   initInputs();
-  // initNetwork();
+  #ifdef NETWORK_SSID
+  initNetwork();
+  #endif
   updateTime(true);
 } //end setup()
 
@@ -113,16 +119,20 @@ unsigned long timeInnerLast = 0; //the inner (fake) clock time, at last tick
 unsigned long timeInnerLastTick = 0; //the real time at which the inner clock last ticked
 int innerTick = 1000; //current length of inner clock ticks, in real time ms
 byte sessionStage = 0; //0 = catchup/normal, 1 = slowing, 2 = steady slow
+int diffSecsLast = 0; //time saved in the current session
 int timeSavedSecs = 0; //accumulated time saved across all sessions
+
 
 void cycleSession() {
   unsigned long now = millis()+timeOffset;
   switch(sessionStage) {
     case 0: //catchup/normal to slowing
+      // setClock(6,15,0);
       sessionStage = 1;
       displaySession(1);
       innerTick = 1600;
       timeStart = now;
+      diffSecsLast = 0;
       #ifdef SHOW_SERIAL
         Serial.println();
         Serial.println(F("Session started. Slowing."));
@@ -138,8 +148,14 @@ void cycleSession() {
         Serial.print(F("The patient spent "));
         Serial.print((now-timeStart)/1000,DEC),
         Serial.print(F(" seconds to save "));
-        Serial.print((now-timeInnerLast)/1000,DEC); //TODO this is wrong compared to the display
+        Serial.print(diffSecsLast,DEC);
         Serial.println(F(" seconds."));
+        #ifdef NETWORK_SSID
+        printCertificate(
+          (now-timeStart)/1000, //secsSpent
+          (now-timeInnerLast)/1000 //secsSaved
+        );
+        #endif
       #endif
       break;
     default: //steady slow to catchup/normal
@@ -179,12 +195,13 @@ void updateTime(bool force) {
       }
     } //end full tick
     //unlike with inner time, outer time is real time, so we can derive display directly from real timestamps
+    // if(sessionStage==0) displayOuterTime(0,0,0,colon);
+    // else 
     displayOuterTime((timeOuterLast%86400000)/3600000,(timeOuterLast%3600000)/60000,(timeOuterLast%60000)/1000,colon);
 
   }
 
   //inner clock ticks
-  int diffSecsLast = 0;
   if(force || (now-timeInnerLastTick >= innerTick/2)) { //check for half tick, which modifies colon
     bool colon = 0;
     if(force || ((now-timeInnerLastTick >= innerTick) && (now-timeInnerLastTick < 10000))) { //check for full tick, which modifies time
@@ -266,11 +283,14 @@ void updateTime(bool force) {
       } //end catchup
       unsigned long diff = timeOuterLast-timeInnerLast; //ehhh
       if(diff/1000 > diffSecsLast) { //each time the difference grows by 1sec, update cumulative time-saved clock by a tick
+        diffSecsLast = diff/1000;
         timeSavedSecs ++;
         lavetUpdates += 4;
       }
       displaySecondsSaved((diff%100000)/1000); //if using just two digits - display up to 99 seconds
     } //end full tick
+    // if(sessionStage==0) displayInnerTime(0,0,0,colon);
+    // else
     displayInnerTime((timeInnerLast%86400000)/3600000,(timeInnerLast%3600000)/60000,(timeInnerLast%60000)/1000,colon);
   }
 
