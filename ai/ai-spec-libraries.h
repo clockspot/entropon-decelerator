@@ -117,13 +117,13 @@ struct ExhibitState {
 #define DISPLAY_MANAGER_H
 
 #include <Arduino.h>
-#include <TM1637Display.h>
+#include <TM1637TinyDisplay6.h>  // For 6-digit displays
 #include "TimeTypes.h"
 
 class DisplayManager {
 private:
     // Display objects (must be initialized with pins in constructor)
-    TM1637Display* displays[4];
+    TM1637TinyDisplay6* displays[4];
     
     // Pin assignments
     uint8_t ledPins[3];
@@ -138,6 +138,11 @@ private:
     bool blinkState;
     uint32_t lastBlinkMillis;
     
+    // Display freeze state for recovery mode
+    bool freezeDisplays;
+    uint8_t frozenDifferenceDisplay[6];
+    uint8_t frozenElapsedDisplay[6];
+    
 public:
     // Constructor
     DisplayManager(
@@ -150,12 +155,12 @@ public:
         uint8_t clockOutEven, uint8_t clockOutOdd,
         uint8_t clockChamberEven, uint8_t clockChamberOdd,
         uint8_t clockSavedEven, uint8_t clockSavedOdd
-    ) : meterPin(meterPWM) {
-        // Initialize displays
-        displays[0] = new TM1637Display(display1CLK, display1DIO);
-        displays[1] = new TM1637Display(display2CLK, display2DIO);
-        displays[2] = new TM1637Display(display3CLK, display3DIO);
-        displays[3] = new TM1637Display(display4CLK, display4DIO);
+    ) : meterPin(meterPWM), freezeDisplays(false) {
+        // Initialize displays using TM1637TinyDisplay6
+        displays[0] = new TM1637TinyDisplay6(display1CLK, display1DIO);
+        displays[1] = new TM1637TinyDisplay6(display2CLK, display2DIO);
+        displays[2] = new TM1637TinyDisplay6(display3CLK, display3DIO);
+        displays[3] = new TM1637TinyDisplay6(display4CLK, display4DIO);
         
         // Store LED pins
         ledPins[0] = ledNormal;
@@ -184,7 +189,8 @@ public:
     void begin() {
         // Set up displays
         for (int i = 0; i < 4; i++) {
-            displays[i]->setBrightness(0x0f);  // Max brightness
+            displays[i]->begin();
+            displays[i]->setBrightness(BRIGHT_HIGH);  // Max brightness
             displays[i]->clear();
         }
         
@@ -221,23 +227,25 @@ public:
         uint8_t minutes = time.getMinutes();
         uint8_t seconds = time.getSeconds();
         
-        // Create display segments
-        uint8_t segments[6];
-        segments[0] = displays[displayNum]->encodeDigit(hours / 10);
-        segments[1] = displays[displayNum]->encodeDigit(hours % 10);
-        segments[2] = displays[displayNum]->encodeDigit(minutes / 10);
-        segments[3] = displays[displayNum]->encodeDigit(minutes % 10);
-        segments[4] = displays[displayNum]->encodeDigit(seconds / 10);
-        segments[5] = displays[displayNum]->encodeDigit(seconds % 10);
+        // Create display buffer
+        uint8_t buffer[6];
+        buffer[0] = hours / 10;
+        buffer[1] = hours % 10;
+        buffer[2] = minutes / 10;
+        buffer[3] = minutes % 10;
+        buffer[4] = seconds / 10;
+        buffer[5] = seconds % 10;
         
-        // Add blinking colons
+        // Show with or without dots based on blink state
         if (blinkState) {
-            segments[1] |= 0x80;  // Colon after hours
-            segments[3] |= 0x80;  // Colon after minutes
+            // Show time with dots between HH:MM:SS
+            displays[displayNum]->showNumber(hours, 0b01000000, true, 2, 0);  // HH with colon
+            displays[displayNum]->showNumber(minutes, 0b01000000, true, 2, 2); // MM with colon
+            displays[displayNum]->showNumber(seconds, 0, true, 2, 4);          // SS
+        } else {
+            // Show time without dots
+            displays[displayNum]->showNumberDec(hours * 10000L + minutes * 100L + seconds, 0b00000000, true);
         }
-        
-        // Update display
-        displays[displayNum]->setSegments(segments, 6);
         
         // Handle clock pulse for this display
         if (displayNum == 0) {  // Outside clock
@@ -247,8 +255,45 @@ public:
         }
     }
     
+    // Alternative method using showTime for cleaner time display
+    void updateTimeDisplayAlt(uint8_t displayNum, const TimeValue& time) {
+        if (displayNum > 1) return;
+        
+        uint8_t hours = time.getHours();
+        uint8_t minutes = time.getMinutes();
+        uint8_t seconds = time.getSeconds();
+        
+        // TM1637TinyDisplay6 can show time in HH:MM:SS format directly
+        // Create time value as HHMMSS
+        uint32_t timeValue = hours * 10000L + minutes * 100L + seconds;
+        
+        // Update blink state
+        uint32_t currentMillis = millis();
+        if (currentMillis - lastBlinkMillis > 500) {
+            blinkState = !blinkState;
+            lastBlinkMillis = currentMillis;
+        }
+        
+        // Show with blinking colons
+        uint8_t dots = blinkState ? 0b01010000 : 0b00000000;  // Dots at positions 1 and 3
+        displays[displayNum]->showNumberDec(timeValue, dots, true);
+        
+        // Handle clock pulse
+        if (displayNum == 0) {
+            updateClockPulse(0, seconds);
+        } else {
+            updateClockPulse(1, seconds);
+        }
+    }
+    
     // Update difference display (display 2)
     void updateDifferenceDisplay(const TimeValue& outside, const TimeValue& chamber) {
+        // Check if we should freeze the display
+        if (freezeDisplays) {
+            displays[2]->setSegments(frozenDifferenceDisplay);
+            return;
+        }
+        
         // Calculate difference in milliseconds
         int32_t diffMillis = chamber.getDifferenceMillis(outside);
         bool negative = (diffMillis < 0);
@@ -260,28 +305,25 @@ public:
         uint8_t seconds = totalSeconds % 60;
         uint8_t hundredths = (diffMillis % 1000) / 10;
         
-        // Format: MM:SS.HH (or -MM:SS for negative)
-        uint8_t segments[6];
-        
-        if (negative && minutes > 0) {
-            // Show minus sign
-            segments[0] = 0x40;  // Minus segment
-            segments[1] = displays[2]->encodeDigit(minutes % 10);
+        // Format: MM:SS.HH (or -MM:SS.HH for negative)
+        if (negative) {
+            // Show negative sign with the time
+            // Using showString for custom formatting
+            char timeStr[8];
+            sprintf(timeStr, "-%02d%02d%02d", minutes, seconds, hundredths);
+            displays[2]->showString(timeStr);
         } else {
-            segments[0] = displays[2]->encodeDigit(minutes / 10);
-            segments[1] = displays[2]->encodeDigit(minutes % 10);
+            // Show positive time with dots
+            // Create the number as MMSSSS (where last two are hundredths)
+            uint32_t displayValue = minutes * 10000L + seconds * 100L + hundredths;
+            
+            // Dots at position 1 (after MM) and position 3 (after SS)
+            uint8_t dots = 0b01010000;  // Colon after position 1, decimal after position 3
+            displays[2]->showNumberDec(displayValue, dots, true);
+            
+            // Store current display for potential freezing
+            displays[2]->readSegments(frozenDifferenceDisplay);
         }
-        
-        segments[2] = displays[2]->encodeDigit(seconds / 10);
-        segments[3] = displays[2]->encodeDigit(seconds % 10);
-        segments[4] = displays[2]->encodeDigit(hundredths / 10);
-        segments[5] = displays[2]->encodeDigit(hundredths % 10);
-        
-        // Add fixed colons and decimal point
-        segments[1] |= 0x80;  // Colon after minutes
-        segments[3] |= 0x80;  // Decimal point after seconds
-        
-        displays[2]->setSegments(segments, 6);
         
         // Update saved time clock (only for positive differences)
         if (!negative) {
@@ -291,6 +333,12 @@ public:
     
     // Update elapsed time display (display 3)
     void updateElapsedDisplay(uint32_t elapsedMillis) {
+        // Check if we should freeze the display
+        if (freezeDisplays) {
+            displays[3]->setSegments(frozenElapsedDisplay);
+            return;
+        }
+        
         // Convert to hours, minutes, seconds
         uint32_t totalSeconds = elapsedMillis / 1000;
         uint8_t hours = (totalSeconds / 3600) % 100;  // Max 99 hours
@@ -298,19 +346,25 @@ public:
         uint8_t seconds = totalSeconds % 60;
         
         // Format: HH:MM:SS
-        uint8_t segments[6];
-        segments[0] = displays[3]->encodeDigit(hours / 10);
-        segments[1] = displays[3]->encodeDigit(hours % 10);
-        segments[2] = displays[3]->encodeDigit(minutes / 10);
-        segments[3] = displays[3]->encodeDigit(minutes % 10);
-        segments[4] = displays[3]->encodeDigit(seconds / 10);
-        segments[5] = displays[3]->encodeDigit(seconds % 10);
+        uint32_t displayValue = hours * 10000L + minutes * 100L + seconds;
         
-        // Add fixed colons
-        segments[1] |= 0x80;  // Colon after hours
-        segments[3] |= 0x80;  // Colon after minutes
+        // Fixed colons at positions 1 and 3
+        uint8_t dots = 0b01010000;
+        displays[3]->showNumberDec(displayValue, dots, true);
         
-        displays[3]->setSegments(segments, 6);
+        // Store current display for potential freezing
+        displays[3]->readSegments(frozenElapsedDisplay);
+    }
+    
+    // Freeze or unfreeze difference and elapsed displays
+    void setDisplayFreeze(bool freeze) {
+        freezeDisplays = freeze;
+        
+        if (freeze) {
+            // Capture current state of displays 2 and 3
+            displays[2]->readSegments(frozenDifferenceDisplay);
+            displays[3]->readSegments(frozenElapsedDisplay);
+        }
     }
     
     // Update analog meter with PWM
@@ -351,13 +405,22 @@ public:
         }
     }
     
-    // Test all displays
+    // Test all displays using TM1637TinyDisplay6 animations
     void testPattern() {
-        // All segments on
-        uint8_t allOn[] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
+        // Use built-in test features of TM1637TinyDisplay6
+        const uint8_t allOn[] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
+        const uint8_t message[] = {
+            SEG_B | SEG_C | SEG_E | SEG_F | SEG_G,           // H
+            SEG_A | SEG_D | SEG_E | SEG_F | SEG_G,           // E
+            SEG_D | SEG_E | SEG_F,                           // L
+            SEG_D | SEG_E | SEG_F,                           // L
+            SEG_A | SEG_B | SEG_C | SEG_D | SEG_E | SEG_F,   // O
+            0x00                                              // Space
+        };
         
+        // Show "HELLO" on all displays
         for (int i = 0; i < 4; i++) {
-            displays[i]->setSegments(allOn);
+            displays[i]->setSegments(message);
         }
         
         // All LEDs on
@@ -370,6 +433,17 @@ public:
         
         delay(1000);
         
+        // Animate with scrolling text
+        for (int i = 0; i < 4; i++) {
+            displays[i]->showString("888888");
+        }
+        delay(500);
+        
+        // Use built-in animation if available
+        for (int i = 0; i < 4; i++) {
+            displays[i]->showAnimation(ANIMATION_FRAME_IN, ANIMATION_FRAME_OUT, 500);
+        }
+        
         // Clear everything
         for (int i = 0; i < 4; i++) {
             displays[i]->clear();
@@ -380,6 +454,18 @@ public:
         }
         
         analogWrite(meterPin, 0);
+    }
+    
+    // Utility method to show custom text on any display
+    void showText(uint8_t displayNum, const char* text) {
+        if (displayNum > 3) return;
+        displays[displayNum]->showString(text);
+    }
+    
+    // Utility method to show scrolling text
+    void scrollText(uint8_t displayNum, const char* text, uint16_t scrollDelay = 200) {
+        if (displayNum > 3) return;
+        displays[displayNum]->showString_P(text, scrollDelay);
     }
     
 private:

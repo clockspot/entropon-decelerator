@@ -4,10 +4,10 @@
 // #include <SoftwareSerial.h>
 //https://forum.arduino.cc/t/using-additional-serial-ports/605955
 //https://learn.adafruit.com/using-atsamd21-sercom-to-add-more-spi-i2c-serial-ports/overview
-#include "configs/config_control.h"
-#include "common/TimeTypes.h"
-#include "common/DisplayManager.h"
-#include "common/SerialProtocol.h"
+#include "config_control.h"
+#include "TimeTypes.h"
+#include "DisplayManager.h"
+#include "SerialProtocol.h"
 
 // Global state
 TimeValue outsideTime;
@@ -25,16 +25,16 @@ DisplayManager display( //TODO incorporate per config TODO can the clk pin be sh
     PIN_ANALOG_DIF_A, PIN_ANALOG_DIF_B //Analog difference (saved) time
 );
 
-#ifdef(RTC_ENABLED)
+#ifdef RTC_ENABLED
   RTC_DS3231 rtc;
 #endif
 
 // SerialProtocol protocol;
-#ifdef(PIN_CHAMBER_TX)
+#ifdef PIN_CHAMBER_TX
   SoftwareSerial chamberSerial(PIN_CHAMBER_RX, PIN_CHAMBER_TX);
   SerialProtocol chamberUnit(&chamberSerial);
 #endif
-#ifdef(PIN_PRINTER_TX)
+#ifdef PIN_PRINTER_TX
   SoftwareSerial printerSerial(PIN_PRINTER_RX, PIN_PRINTER_TX);
 #endif
 
@@ -54,10 +54,10 @@ void setup() {
     Serial.println("");
     Serial.println("Hello world");
 
-    #ifdef(PIN_CHAMBER_TX)
+    #ifdef PIN_CHAMBER_TX
       chamberSerial.begin(9600);
     #endif
-    #ifdef(PIN_PRINTER_TX)
+    #ifdef PIN_PRINTER_TX
       printerSerial.begin(9600);
     #endif
     
@@ -68,7 +68,7 @@ void setup() {
     //PIN_POT_MAX_POS
     //PIN_POT_MIN_RATE
     
-    #ifdef(RTC_ENABLED)
+    #ifdef RTC_ENABLED
       // Initialize RTC
       if (!rtc.begin()) {
           Serial.println(F("RTC not found!"));
@@ -111,7 +111,7 @@ void loop() {
     display.updateLEDs(state.current);
 
     // Communicate with chamber unit
-    #ifdef(PIN_CHAMBER_TX)
+    #ifdef PIN_CHAMBER_TX
       chamberUnit.sendStateUpdate(state);
       chamberUnit.sendTimeUpdate(outsideTime, chamberTime); //TODO why not other values?
     
@@ -125,7 +125,7 @@ void loop() {
     #endif
     
     // Re-sync with RTC at midnight
-    #ifdef(RTC_ENABLED)
+    #ifdef RTC_ENABLED
       if (state.current == ExhibitState::NORMAL && outsideTime.getHours() == 0 && 
           outsideTime.getMinutes() == 0 && outsideTime.getSeconds() < 2) {
             //TODO is there a more elegant way to catch this transition?
@@ -208,7 +208,7 @@ void handleStateTransitions() {
 }
 
 void printCertificate() {
-  #ifdef(PIN_PRINTER_TX)
+  #ifdef PIN_PRINTER_TX
     uint32_t timeDiff = abs((int32_t)(outsideTime.millisSinceMidnight - 
                             chamberTime.millisSinceMidnight));
     uint32_t secondsSaved = timeDiff / 1000;
