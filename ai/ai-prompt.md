@@ -1,0 +1,39 @@
+*The following is the prompt I wrote to ask Claude Opus 4.1. The initial result is in `ai-spec.md`.*
+
+Hello! Please assist me in designing the technical spec, wiring, and Arduino code for the following project. Please suggest any necessary technical corrections or enhancements.
+
+This will be an interactive exhibit that simulates a deceleration of the local time inside a chamber. It will consist of a “control” unit and a “chamber” unit. Each unit will contain an Arduino - likely an Arduino Nano 33 IoT and a classic Arduino Nano, respectively - which will be wired to each other for bidirectional serial communication, as well as to various inputs (buttons) and outputs (displays).
+
+The exhibit state is maintained by the control unit, and is cyclical so it can be repeated for each visitor. When they enter the chamber, the exhibit is in “normal” state: the local time inside and outside the chamber is the same. When the operator presses Start, the exhibit moves into “deceleration” state, where the chamber time rate begins to decrease, accelerating at first to a maximum negative rate change, then decelerating as the chamber time rate approaches its minimum. When the visitor or operator presses Stop or the minimum chamber time rate is reached, the exhibit moves into “recovery” state, where the chamber time rate begins to increase, accelerating at first to a maximum positive rate change, then decelerating as the chamber time approaches the outside time. Once chamber time and outside time are in sync again, the exhibit returns to “normal” state, ready for another visitor.
+
+The control unit’s inputs will include two buttons for Start and Stop, and three knobs that control the character of the chamber time changes: maximum negative rate change, maximum positive rate change, and minimum chamber time rate. It will also monitor for a Stop signal from the chamber unit via serial, and when it boots, it will set its “clock” per an external RTC connected via I2C. Its outputs will include three LEDs indicating state (deceleration, recovery, and normal); a large 5VDC meter, driven with PWM, to display chamber time rate (in seconds lost per outside second); four six-digit seven-segment displays, driven with TM1637 ICs, to display outside time, chamber time, the difference between them, and the elapsed outside time; three large analog clocks, driven with alternating signals to actuate their Lavet-type stepper motors, which are advanced with every new whole second of outside time, chamber time, and difference/time saved (this clock will show cumulative time saved, since it cannot be actuated backward); and a small certificate printer that is sent text data via serial. It will also send display data to the chamber unit via serial.
+
+The chamber unit’s input is a single Stop button. It will also monitor for the display data from the control unit via serial. Its outputs will include the same three LEDs, 5VDC meter, and four six-digit displays as the control unit, and it will control some effects that correlate to the chamber time rate, such as vibration motors driven with PWM, a string of RGB LED lights, and a relay to toggle a smoke machine. When the Stop button is pressed, it will send a signal to the control unit via serial.
+
+This is how I would write the code. I am open to all suggestions for improvement.
+
+The configuration file(s) would include variable information such as the pin connections.
+
+Because millisecond resolution is necessary for many of the effects, the control unit Arduino will keep track of outside time and chamber time using global variables indicating milliseconds since midnight. (Code dealing with these values should always handle midnight rollovers; e.g., if the value exceeds 86399999, subtract 86400000; if it goes negative, add 86400000.) It will also use a global variable to keep track of the last millis(), that is, the value of millis() at the beginning of each loop.
+
+The sketch should also use global variables to track the state, deceleration elapsed time, and recovery elapsed time. The latter two should be set to zero when their respective state begins. It is unlikely that the elapsed time should roll over, but if it does, the exhibit should skip to the next state.
+
+When the control unit sketch starts, it should briefly actuate all the displays as a test (sending this data to the chamber unit as well), then read the current time of day from an RTC connected via I2C (to the nearest second), convert this into milliseconds since midnight, and store this value in the time-of-day global variables. To counteract millis() drift, the loop code should also do this every time the time of day passes midnight, as long as the exhibit is in normal state.
+
+Each time the control unit sketch loops, it should set a variable to the current millis(), and increment the outside time and the deceleration or recovery elapsed time (as applicable) by the difference between the current and last millis() (which will take care of millis() rollover). It should also recalculate the current chamber time rate per the current state, its elapsed time, and the knob inputs; and it should increment the chamber time by the millis() difference multiplied by the current chamber time rate.
+
+The LEDs should be updated to show the state, and the 5VDC meter should be updated to display the current chamber time rate. This is done using PWM on a linear scale between 0V (normal rate) and 5V (minus 1 second per second).
+
+The outside time and chamber time displays should be updated with their respective values. They should display as hours, minutes, and seconds in 24-hour format and leading zeroes, with blinking separator dots between each unit (on for the first half of the second, off for the second half). Each time the second changes, a pulse should be sent to the respective analog clock’s stepper motor (one pin for even seconds, the other pin for odd ones).
+
+The difference display should be updated to show the difference between outside and chamber time in minutes, seconds, and hundredths, with leading zeroes and fixed separator dots between each unit. Each time the difference increases by a whole second, a pulse should be sent to the time-saved analog clock (a persistent boolean variable will be needed to track odd-even pulses).
+
+The elapsed time display should be continually updated to show only the deceleration elapsed time. It should display as hours, minutes, and seconds, with leading zeroes and fixed separator dots. (Recovery elapsed time is not displayed.)
+
+When the exhibit moves into recovery state, the difference and elapsed time displays should freeze if possible, and the string “I spent [x] seconds to save [x] seconds in the chamber” should be sent via serial to the certificate printer.
+
+At the end of the loop, the last millis() global variable is updated to the value of millis() when this loop instance began.
+
+When the chamber unit sketch starts, it activates a single display as a sign of life. When it loops, it should monitor for a button press and send it to the control unit. It should also monitor for display data from the control unit and display it just as the control unit does; and it should control the vibration motors, RGB LEDs, and smoke machine relay accordingly.
+
+Since both units drive many of the same display units, I am considering using the same Arduino sketch for both units, with separate configuration files for the control unit and chamber unit, containing an environment variable indicating which is which; or some way to modularize the display code, so that two separate Arduino sketches (one for control unit and one for chamber unit) can use the same display code. Please choose the approach that is the most sustainable.

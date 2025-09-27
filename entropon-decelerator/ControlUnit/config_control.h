@@ -1,0 +1,47 @@
+#pragma once
+
+//Pin definitions
+//Hardware inputs
+#define PIN_START_BUTTON 2
+#define PIN_STOP_BUTTON 3
+#define PIN_POT_MAX_NEG A0
+#define PIN_POT_MAX_POS A1
+#define PIN_POT_MIN_RATE A2
+
+//SoftwareSerial
+// #define PIN_CHAMBER_RX 11
+// #define PIN_CHAMBER_TX 10
+// #define PIN_PRINTER_RX 13 //TODO do we need?
+// #define PIN_PRINTER_TX 12
+
+//TODO I2C SDA?
+//TODO I2C SCL?
+// #define RTC_ENABLED
+
+//DisplayManager
+#define PIN_DISP_OUT_CLK 7
+#define PIN_DISP_OUT_DIO 8
+#define PIN_DISP_CHM_CLK A6
+#define PIN_DISP_CHM_DIO A7
+#define PIN_DISP_DIF_CLK 0
+#define PIN_DISP_DIF_DIO 1
+#define PIN_DISP_ELP_CLK 14
+#define PIN_DISP_ELP_DIO 15
+#define PIN_LED_NORMAL 4
+#define PIN_LED_DECEL 5
+#define PIN_LED_RECOVERY 6
+#define PIN_METER_PWM 9
+#define PIN_ANALOG_OUT_A 16
+#define PIN_ANALOG_OUT_B 17
+#define PIN_ANALOG_CHM_A 18
+#define PIN_ANALOG_CHM_B 19
+#define PIN_ANALOG_DIF_A 20
+#define PIN_ANALOG_DIF_B 21
+
+
+// Timing parameters
+#define CLOCK_PULSE_DURATION 30  // milliseconds
+#define SERIAL_TIMEOUT 100        // milliseconds
+
+// Display parameters
+#define DISPLAY_UPDATE_INTERVAL 50  // milliseconds
