@@ -23,16 +23,12 @@ private:
     uint8_t analogClockLastSeconds[3];
     bool analogClockOddPinPulse[3];
     
-    // Display blink state
-    bool blinkState;
-    uint32_t lastBlinkMillis;
-    
     // Display freeze state for recovery mode
     bool freezeDisplays;
 
-    //WIP
-    uint32_t timeLast;
-    bool blinkStateLast;
+    // //WIP
+    // uint32_t timeLast;
+    // bool blinkStateLast;
     
 public:
     // Constructor
@@ -71,9 +67,6 @@ public:
             analogClockLastSeconds[i] = 255;  // Invalid value to force first pulse
             analogClockOddPinPulse[i] = false;
         }
-        
-        blinkState = false;
-        lastBlinkMillis = 0;
     }
     
     // Initialize all displays and outputs
@@ -105,93 +98,16 @@ public:
     // Update time display (display 0 or 1)
     void updateDigitalClock(uint8_t displayNum, const TimeValue& time) {
         if (displayNum > 1) return;
-        
-        // Update blink state (for colon)
-        uint32_t currentMillis = millis();
-        if (currentMillis - lastBlinkMillis > 500) {
-            blinkState = !blinkState;
-            lastBlinkMillis = currentMillis;
-        }
-        
-        // Format: HH:MM:SS
-        uint8_t hours = time.getHours();
-        uint8_t minutes = time.getMinutes();
-        uint8_t seconds = time.getSeconds();
-        
-        // Create display buffer
-        uint8_t buffer[6];
-        buffer[0] = hours / 10;
-        buffer[1] = hours % 10;
-        buffer[2] = minutes / 10;
-        buffer[3] = minutes % 10;
-        buffer[4] = seconds / 10;
-        buffer[5] = seconds % 10;
-        
-        // Show with or without dots based on blink state
-        if (blinkState) {
-            // Show time with dots between HH:MM:SS
-            digitalClocks[displayNum]->showNumberDec(hours, 0b01000000, true, 2, 0);  // HH with colon
-            digitalClocks[displayNum]->showNumberDec(minutes, 0b01000000, true, 2, 2); // MM with colon
-            digitalClocks[displayNum]->showNumberDec(seconds, 0, true, 2, 4);          // SS
-        } else {
-            // Show time without dots
-            digitalClocks[displayNum]->showNumberDec(hours * 10000L + minutes * 100L + seconds, 0b00000000, true);
-        }
-
-        if(displayNum==0) {
-            if(timeLast != (hours * 10000L + minutes * 100L + seconds) || blinkStateLast != blinkState) {
-                timeLast = hours * 10000L + minutes * 100L + seconds;
-                blinkStateLast = blinkState;
-
-                Serial.print(buffer[0],DEC);
-                Serial.print(buffer[1],DEC);
-                if(blinkState) Serial.print(":");
-                else           Serial.print(" ");
-                Serial.print(buffer[2],DEC);
-                Serial.print(buffer[3],DEC);
-                if(blinkState) Serial.print(":");
-                else           Serial.print(" ");
-                Serial.print(buffer[4],DEC);
-                Serial.print(buffer[5],DEC);
-                Serial.println();
-            }
-        }
+        digitalClocks[displayNum]->showNumberDec(
+            time.getHHMMSS(),
+            (1-(time.getMils()/500) ? 0b01010000 : 0b00000000), //show separators on first half of second
+            true, 6 //show leading zeroes on six digits
+        );
         
         // Handle clock pulse for this display [wip]
         // if (displayNum == 0) {  // Outside clock
         //     updateAnalogClock(0, seconds);
         // } else {  // Chamber clock
-        //     updateAnalogClock(1, seconds);
-        // }
-    }
-    
-    // Alternative method using showTime for cleaner time display
-    void updateDigitalClockAlt(uint8_t displayNum, const TimeValue& time) {
-        if (displayNum > 1) return;
-        
-        uint8_t hours = time.getHours();
-        uint8_t minutes = time.getMinutes();
-        uint8_t seconds = time.getSeconds();
-        
-        // TM1637TinyDisplay6 can show time in HH:MM:SS format directly
-        // Create time value as HHMMSS
-        uint32_t timeValue = hours * 10000L + minutes * 100L + seconds;
-        
-        // Update blink state
-        uint32_t currentMillis = millis();
-        if (currentMillis - lastBlinkMillis > 500) {
-            blinkState = !blinkState;
-            lastBlinkMillis = currentMillis;
-        }
-        
-        // Show with blinking colons
-        uint8_t dots = blinkState ? 0b01010000 : 0b00000000;  // Dots at positions 1 and 3
-        digitalClocks[displayNum]->showNumberDec(timeValue, dots, true);
-        
-        // Handle clock pulse [wip]
-        // if (displayNum == 0) {
-        //     updateAnalogClock(0, seconds);
-        // } else {
         //     updateAnalogClock(1, seconds);
         // }
     }

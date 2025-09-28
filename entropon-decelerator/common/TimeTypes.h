@@ -1,22 +1,3 @@
-// // TimeTypes.h - Common data structures
-// struct TimeValue {
-//     uint32_t millisSinceMidnight;
-    
-//     void addMillis(uint32_t delta);
-//     void normalize();  // Handle midnight rollover
-//     uint8_t getHours() const;
-//     uint8_t getMinutes() const;
-//     uint8_t getSeconds() const;
-//     uint16_t getMillis() const;
-// };
-
-// struct ExhibitState {
-//     enum State { NORMAL, DECELERATION, RECOVERY };
-//     State current;
-//     uint32_t elapsedMillis;
-//     int32_t chamberRateQ16;  // Fixed-point Q16 format
-// };
-
 // ==========================================
 // TimeTypes.h - Common data structures
 // ==========================================
@@ -64,9 +45,17 @@ struct TimeValue {
     uint8_t getSeconds() const {
         return (millisSinceMidnight / MILLIS_PER_SECOND) % 60;
     }
-    
-    uint16_t getMillis() const {
+
+    uint16_t getMils() const {
         return millisSinceMidnight % MILLIS_PER_SECOND;
+    }
+    
+    uint32_t getHHMMSS() const {
+        return getHours() * 10000L + getMinutes() * 100L + getSeconds();
+    }
+
+    uint32_t getMMSSDD() const { //DD = decimal
+        return getMinutes() * 10000L + getSeconds() * 100L + (getMils()%1000)/10;
     }
     
     // Get total seconds (for display purposes)
