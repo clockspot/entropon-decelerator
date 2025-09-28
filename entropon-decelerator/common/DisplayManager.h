@@ -213,64 +213,37 @@ public:
         // }
     }
     
-    // Test all displays using TM1637TinyDisplay6 animations
     void testPattern() {
-        // Use built-in test features of TM1637TinyDisplay6
-        const uint8_t allOn[] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
-        const uint8_t message[] = {
-            SEG_B | SEG_C | SEG_E | SEG_F | SEG_G,           // H
-            SEG_A | SEG_D | SEG_E | SEG_F | SEG_G,           // E
-            SEG_D | SEG_E | SEG_F,                           // L
-            SEG_D | SEG_E | SEG_F,                           // L
-            SEG_A | SEG_B | SEG_C | SEG_D | SEG_E | SEG_F,   // O
-            0x00                                              // Space
-        };
         
-        // Show "HELLO" on all displays
-        for (int i = 0; i < 4; i++) {
-            digitalClocks[i]->setSegments(message);
-        }
-        
+        // All on, all eights, needle rise
         // All LEDs on [wip]
         // for (int i = 0; i < 3; i++) {
         //     digitalWrite(ledPins[i], HIGH);
         // }
-        
-        // Full meter
-        analogWrite(meterPin, 255);
-        
-        delay(1000);
-        
-        // Animate with scrolling text
+        analogWrite(meterPin, 255); //TODO need to make the needle move gently
         for (int i = 0; i < 4; i++) {
             digitalClocks[i]->showString("888888");
         }
-        delay(500);
+        delay(1000); //fix this
         
-        // Use built-in animation if available - removed
+        // Fall, with display IDs
+        // for (int i = 0; i < 3; i++) { [wip]
+        //     digitalWrite(ledPins[i], LOW);
+        // }
+        analogWrite(meterPin, 128); //TODO need to make the needle move gently
+        digitalClocks[0]->showString("Outsid");
+        digitalClocks[1]->showString("Chambr");
+        digitalClocks[2]->showString("Differ");
+        digitalClocks[3]->showString("Elapsd");
+        delay(1000); //fix this
         
         // Clear everything
         for (int i = 0; i < 4; i++) {
             digitalClocks[i]->clear();
         }
         
-        // for (int i = 0; i < 3; i++) { [wip]
-        //     digitalWrite(ledPins[i], LOW);
-        // }
         
         analogWrite(meterPin, 0);
-    }
-    
-    // Utility method to show custom text on any display
-    void showText(uint8_t displayNum, const char* text) {
-        if (displayNum > 3) return;
-        digitalClocks[displayNum]->showString(text);
-    }
-    
-    // Utility method to show scrolling text
-    void scrollText(uint8_t displayNum, const char* text, uint16_t scrollDelay = 200) {
-        if (displayNum > 3) return;
-        digitalClocks[displayNum]->showString_P(text, scrollDelay);
     }
     
 private:
