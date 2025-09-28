@@ -29,8 +29,6 @@ private:
     
     // Display freeze state for recovery mode
     bool freezeDisplays;
-    uint8_t frozenDifferenceDisplay[6];
-    uint8_t frozenElapsedDisplay[6];
     
 public:
     // Constructor
@@ -178,10 +176,7 @@ public:
     // Update difference display (display 2)
     void updateDifferenceDisplay(const TimeValue& outside, const TimeValue& chamber) {
         // Check if we should freeze the display
-        if (freezeDisplays) {
-            displays[2]->setSegments(frozenDifferenceDisplay);
-            return;
-        }
+        if (freezeDisplays) return;
         
         // Calculate difference in milliseconds
         int32_t diffMillis = chamber.getDifferenceMillis(outside);
@@ -209,9 +204,6 @@ public:
             // Dots at position 1 (after MM) and position 3 (after SS)
             uint8_t dots = 0b01010000;  // Colon after position 1, decimal after position 3
             displays[2]->showNumberDec(displayValue, dots, true);
-            
-            // Store current display for potential freezing
-            displays[2]->readSegments(frozenDifferenceDisplay);
         }
         
         // Update saved time clock (only for positive differences)
@@ -223,10 +215,7 @@ public:
     // Update elapsed time display (display 3)
     void updateElapsedDisplay(uint32_t elapsedMillis) {
         // Check if we should freeze the display
-        if (freezeDisplays) {
-            displays[3]->setSegments(frozenElapsedDisplay);
-            return;
-        }
+        if (freezeDisplays) return;
         
         // Convert to hours, minutes, seconds
         uint32_t totalSeconds = elapsedMillis / 1000;
@@ -240,20 +229,11 @@ public:
         // Fixed colons at positions 1 and 3
         uint8_t dots = 0b01010000;
         displays[3]->showNumberDec(displayValue, dots, true);
-        
-        // Store current display for potential freezing
-        displays[3]->readSegments(frozenElapsedDisplay);
     }
     
     // Freeze or unfreeze difference and elapsed displays
     void setDisplayFreeze(bool freeze) {
         freezeDisplays = freeze;
-        
-        if (freeze) {
-            // Capture current state of displays 2 and 3
-            displays[2]->readSegments(frozenDifferenceDisplay);
-            displays[3]->readSegments(frozenElapsedDisplay);
-        }
     }
     
     // Update analog meter with PWM
