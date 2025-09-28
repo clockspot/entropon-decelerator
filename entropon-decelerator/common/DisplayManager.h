@@ -128,9 +128,9 @@ public:
         // Show with or without dots based on blink state
         if (blinkState) {
             // Show time with dots between HH:MM:SS
-            displays[displayNum]->showNumber(hours, 0b01000000, true, 2, 0);  // HH with colon
-            displays[displayNum]->showNumber(minutes, 0b01000000, true, 2, 2); // MM with colon
-            displays[displayNum]->showNumber(seconds, 0, true, 2, 4);          // SS
+            displays[displayNum]->showNumberDec(hours, 0b01000000, true, 2, 0);  // HH with colon
+            displays[displayNum]->showNumberDec(minutes, 0b01000000, true, 2, 2); // MM with colon
+            displays[displayNum]->showNumberDec(seconds, 0, true, 2, 4);          // SS
         } else {
             // Show time without dots
             displays[displayNum]->showNumberDec(hours * 10000L + minutes * 100L + seconds, 0b00000000, true);
