@@ -34,7 +34,6 @@ void loop() {
     if (digitalRead(PIN_STOP_BUTTON) == LOW) {
         uint8_t stopMsg = SerialProtocol::MSG_STOP;
         controlSerial.write(&stopMsg, 1);
-        delay(50); // Debounce
     }
     
     // Receive updates from control unit
