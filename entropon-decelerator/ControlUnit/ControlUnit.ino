@@ -14,15 +14,15 @@ TimeValue outsideTime;
 TimeValue chamberTime;
 ExhibitState state;
 DisplayManager display( //TODO incorporate per config TODO can the clk pin be shared?
-    PIN_DISP_OUT_CLK, PIN_DISP_OUT_DIO, //Digital outside time
-    PIN_DISP_CHM_CLK, PIN_DISP_CHM_DIO, //Digital chamber time
-    PIN_DISP_DIF_CLK, PIN_DISP_DIF_DIO, //Digital difference
-    PIN_DISP_ELP_CLK, PIN_DISP_ELP_DIO, //Digital elapsed
-    PIN_LED_NORMAL, PIN_LED_DECEL, PIN_LED_RECOVERY, //LEDs
-    PIN_METER_PWM, //Meter
-    PIN_ANALOG_OUT_A, PIN_ANALOG_OUT_B, //Analog outside time
-    PIN_ANALOG_CHM_A, PIN_ANALOG_CHM_B, //Analog chamber time
-    PIN_ANALOG_DIF_A, PIN_ANALOG_DIF_B //Analog difference (saved) time
+    PIN_DIGITAL_OUT_CLK, PIN_DIGITAL_OUT_DIO, //Digital outside time
+    PIN_DIGITAL_CHM_CLK, PIN_DIGITAL_CHM_DIO, //Digital chamber time
+    PIN_DIGITAL_DIF_CLK, PIN_DIGITAL_DIF_DIO, //Digital difference
+    PIN_DIGITAL_ELP_CLK, PIN_DIGITAL_ELP_DIO, //Digital elapsed
+    // PIN_LED_NORMAL, PIN_LED_DECEL, PIN_LED_RECOVERY, //LEDs
+    PIN_METER_PWM //, //Meter
+    // PIN_ANALOG_OUT_A, PIN_ANALOG_OUT_B, //Analog outside time
+    // PIN_ANALOG_CHM_A, PIN_ANALOG_CHM_B, //Analog chamber time
+    // PIN_ANALOG_DIF_A, PIN_ANALOG_DIF_B //Analog difference (saved) time
 );
 
 #ifdef RTC_ENABLED
@@ -64,6 +64,7 @@ void setup() {
     // Initialize inputs
     pinMode(PIN_START_BUTTON,INPUT_PULLUP);
     pinMode(PIN_STOP_BUTTON,INPUT_PULLUP);
+    //The following may not need init
     //PIN_POT_MAX_NEG
     //PIN_POT_MAX_POS
     //PIN_POT_MIN_RATE
@@ -79,6 +80,7 @@ void setup() {
     #endif
         
     // Test displays
+    display.begin();
     display.testPattern();
     
     state.current = ExhibitState::NORMAL;
@@ -103,10 +105,10 @@ void loop() {
     handleStateTransitions();
     
     // Update displays
-    display.updateTimeDisplay(0,outsideTime.getMillis());
-    display.updateTimeDisplay(1,chamberTime.getMillis());
-    display.updateDifferenceDisplay(outsideTime.getMillis(),chamberTime.getMillis()); //TODO does this deal with rollover?
-    if(state.current == ExhibitState::DECELERATION) display.updateElapsedDisplay(state.elapsedMillis());
+    display.updateDigitalClock(0,outsideTime);
+    display.updateDigitalClock(1,chamberTime);
+    display.updateDigitalClockDifference(outsideTime,chamberTime); //TODO does this deal with rollover?
+    if(state.current == ExhibitState::DECELERATION) display.updateDigitalClockElapsed(state.elapsedMillis);
     display.updateMeter(state.chamberRateQ16);
     display.updateLEDs(state.current);
 
@@ -138,9 +140,23 @@ void loop() {
 
 void updateChamberRate() {
     // Read potentiometers
-    float maxNegRate = analogRead(PIN_POT_MAX_NEG) / 1023.0;
-    float maxPosRate = analogRead(PIN_POT_MAX_POS) / 1023.0;
-    float minChamberRate = analogRead(PIN_POT_MIN_RATE) / 1023.0;
+    #ifdef PIN_POT_MAX_NEG
+      float maxNegRate = analogRead(PIN_POT_MAX_NEG) / 1023.0;
+    #else
+      float maxNegRate = 512 / 1023.0;
+    #endif
+
+    #ifdef PIN_POT_MAX_POS
+      float maxPosRate = analogRead(PIN_POT_MAX_POS) / 1023.0;
+    #else
+      float maxPosRate = 512 / 1023.0;
+    #endif
+
+    #ifdef PIN_POT_MIN_RATE
+      float minChamberRate = analogRead(PIN_POT_MIN_RATE) / 1023.0;
+    #else
+      float minChamberRate = 512 / 1023.0;
+    #endif
     
     switch (state.current) {
         case ExhibitState::NORMAL:

@@ -2,11 +2,11 @@
 
 //Pin definitions
 //Hardware inputs
-#define PIN_START_BUTTON 2
-#define PIN_STOP_BUTTON 3
-#define PIN_POT_MAX_NEG A0
-#define PIN_POT_MAX_POS A1
-#define PIN_POT_MIN_RATE A2
+#define PIN_START_BUTTON 4
+#define PIN_STOP_BUTTON 5
+// #define PIN_POT_MAX_NEG A0
+// #define PIN_POT_MAX_POS A1
+// #define PIN_POT_MIN_RATE A2
 
 //SoftwareSerial
 // #define PIN_CHAMBER_RX 11
@@ -19,24 +19,30 @@
 // #define RTC_ENABLED
 
 //DisplayManager
-#define PIN_DISP_OUT_CLK 7
-#define PIN_DISP_OUT_DIO 8
-#define PIN_DISP_CHM_CLK A6
-#define PIN_DISP_CHM_DIO A7
-#define PIN_DISP_DIF_CLK 0
-#define PIN_DISP_DIF_DIO 1
-#define PIN_DISP_ELP_CLK 14
-#define PIN_DISP_ELP_DIO 15
-#define PIN_LED_NORMAL 4
-#define PIN_LED_DECEL 5
-#define PIN_LED_RECOVERY 6
-#define PIN_METER_PWM 9
-#define PIN_ANALOG_OUT_A 16
-#define PIN_ANALOG_OUT_B 17
-#define PIN_ANALOG_CHM_A 18
-#define PIN_ANALOG_CHM_B 19
-#define PIN_ANALOG_DIF_A 20
-#define PIN_ANALOG_DIF_B 21
+#define PIN_DIGITAL_OUT_DIO 2
+#define PIN_DIGITAL_OUT_CLK 3
+
+#define PIN_DIGITAL_CHM_DIO 8
+#define PIN_DIGITAL_CHM_CLK 9
+
+#define PIN_DIGITAL_DIF_DIO 10
+#define PIN_DIGITAL_DIF_CLK 11
+
+#define PIN_DIGITAL_ELP_DIO 12
+#define PIN_DIGITAL_ELP_CLK 13 //blinky!
+
+// #define PIN_LED_NORMAL 4
+// #define PIN_LED_DECEL 5
+// #define PIN_LED_RECOVERY 6
+
+#define PIN_METER_PWM 6
+
+// #define PIN_ANALOG_OUT_A 16
+// #define PIN_ANALOG_OUT_B 17
+// #define PIN_ANALOG_CHM_A 18
+// #define PIN_ANALOG_CHM_B 19
+// #define PIN_ANALOG_DIF_A 20
+// #define PIN_ANALOG_DIF_B 21
 
 
 // Timing parameters
