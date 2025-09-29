@@ -83,7 +83,7 @@ void setup() {
     display.begin();
     display.testPattern();
     
-    state.current = ExhibitState::NORMAL;
+    state.reset();
     lastLoopMillis = millis();
 }
 
@@ -97,8 +97,10 @@ void loop() {
     // Calculate chamber time rate based on state
     updateChamberRate();
     
-    // Update chamber time (using fixed-point math)
-    int64_t chamberDelta = ((int64_t)deltaMillis * state.chamberRateQ16) >> 16;
+    // Calculate chamber time delta using the rate
+    // chamberDelta = deltaMillis * (chamberRateMs / 1000)
+    // Using integer math: chamberDelta = (deltaMillis * chamberRateMs) / 1000
+    uint32_t chamberDelta = ((uint32_t)deltaMillis * state.chamberRateMs) / 1000;
     chamberTime.addMillis(chamberDelta);
     
     // State machine
@@ -109,7 +111,7 @@ void loop() {
     display.updateDigitalClock(1,chamberTime);
     display.updateDigitalClockDifference(outsideTime,chamberTime); //TODO does this deal with rollover?
     if(state.current == ExhibitState::DECELERATION) display.updateDigitalClockElapsed(state.elapsedMillis);
-    display.updateMeter(state.chamberRateQ16);
+    display.updateMeter(state.chamberRateMs);
     display.updateLEDs(state.current);
 
     // Communicate with chamber unit
@@ -139,44 +141,57 @@ void loop() {
 }
 
 void updateChamberRate() {
+    if(state.current==ExhibitState::NORMAL) return;
+
     // Read potentiometers
     #ifdef PIN_POT_MAX_NEG
-      float maxNegRate = analogRead(PIN_POT_MAX_NEG) / 1023.0;
+      uint16_t potMaxNeg = analogRead(PIN_POT_MAX_NEG);
     #else
-      float maxNegRate = 512 / 1023.0;
+      uint16_t potMaxNeg = 512;
     #endif
 
     #ifdef PIN_POT_MAX_POS
-      float maxPosRate = analogRead(PIN_POT_MAX_POS) / 1023.0;
+      uint16_t potMaxPos = analogRead(PIN_POT_MAX_POS);
     #else
-      float maxPosRate = 512 / 1023.0;
+      uint16_t potMaxPos = 512;
     #endif
 
     #ifdef PIN_POT_MIN_RATE
-      float minChamberRate = analogRead(PIN_POT_MIN_RATE) / 1023.0;
+      uint16_t potMinRate = analogRead(PIN_POT_MIN_RATE);
     #else
-      float minChamberRate = 512 / 1023.0;
+      uint16_t potMinRate = 512;
     #endif
+
+    // Minimum rate from pot (100-1000 ms per second)
+    uint16_t minRate = 100 + ((uint32_t)potMinRate * 900) / 1023;
+    
+    // Deceleration/recovery duration from pots (2-20 seconds)
+    uint32_t decelDuration = 2000 + ((uint32_t)(1023 - potMaxNeg) * 18000) / 1023;
+    uint32_t recoveryDuration = 2000 + ((uint32_t)(1023 - potMaxPos) * 18000) / 1023;
     
     switch (state.current) {
-        case ExhibitState::NORMAL:
-            state.chamberRateQ16 = 65536; // 1.0 in Q16
-            break;
-            
         case ExhibitState::DECELERATION: {
-            // Smooth exponential decay curve
-            float t = state.elapsedMillis / 1000.0;
-            float rate = 1.0 - (1.0 - minChamberRate) * (1.0 - exp(-t * maxNegRate));
-            state.chamberRateQ16 = (int32_t)(rate * 65536);
+            if (state.elapsedMillis >= decelDuration) {
+                // Reached minimum rate
+                state.chamberRateMs = minRate;
+            } else {
+                // Linear interpolation from 1000 to minRate
+                uint32_t progress = (state.elapsedMillis * 1000) / decelDuration;
+                state.chamberRateMs = RATE_NORMAL - ((RATE_NORMAL - minRate) * progress) / 1000;
+            }
             break;
         }
         
         case ExhibitState::RECOVERY: {
-            // Smooth exponential recovery curve
-            float t = state.elapsedMillis / 1000.0;
-            float startRate = ((float)state.chamberRateQ16) / 65536.0;
-            float rate = startRate + (1.0 - startRate) * (1.0 - exp(-t * maxPosRate));
-            state.chamberRateQ16 = (int32_t)(rate * 65536);
+            if (state.elapsedMillis >= recoveryDuration) {
+                // Back to normal
+                state.chamberRateMs = RATE_NORMAL;
+            } else {
+                // Linear interpolation from savedMinRate to 1000
+                uint32_t progress = (state.elapsedMillis * 1000) / recoveryDuration;
+                state.chamberRateMs = state.savedMinRate + 
+                    ((RATE_NORMAL - state.savedMinRate) * progress) / 1000;
+            }
             break;
         }
     }
@@ -200,7 +215,8 @@ void handleStateTransitions() {
             state.elapsedMillis = millis() - decelStartTime;
             
             if (digitalRead(PIN_STOP_BUTTON) == LOW || 
-                state.chamberRateQ16 <= (int32_t)(0.01 * 65536)) {
+              state.chamberRateMs <= 110) {  // Within 10% of minimum
+              //TODO that's not what I meant
                 state.current = ExhibitState::RECOVERY;
                 Serial.println("Recovering");
                 state.elapsedMillis = 0;
@@ -212,7 +228,8 @@ void handleStateTransitions() {
         case ExhibitState::RECOVERY:
             state.elapsedMillis = millis() - recoverStartTime;
             
-            if (abs(state.chamberRateQ16 - 65536) < 655) { // Within 1% of normal
+            if (state.chamberRateMs >= RATE_NORMAL-(RATE_NORMAL/100)) { //within 1% of RATE_NORMAL
+                state.chamberRateMs = RATE_NORMAL;
                 state.current = ExhibitState::NORMAL;
                 Serial.println("Normal");
                 state.elapsedMillis = 0;

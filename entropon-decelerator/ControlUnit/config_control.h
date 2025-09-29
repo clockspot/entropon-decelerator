@@ -19,11 +19,11 @@
 // #define RTC_ENABLED
 
 //DisplayManager
-#define PIN_DIGITAL_OUT_DIO 2
-#define PIN_DIGITAL_OUT_CLK 3
+#define PIN_DIGITAL_OUT_DIO 8
+#define PIN_DIGITAL_OUT_CLK 9
 
-#define PIN_DIGITAL_CHM_DIO 8
-#define PIN_DIGITAL_CHM_CLK 9
+#define PIN_DIGITAL_CHM_DIO 2
+#define PIN_DIGITAL_CHM_CLK 3
 
 #define PIN_DIGITAL_DIF_DIO 10
 #define PIN_DIGITAL_DIF_CLK 11
@@ -51,3 +51,8 @@
 
 // Display parameters
 #define DISPLAY_UPDATE_INTERVAL 50  // milliseconds
+
+// Constants for rate calculation
+#define RATE_NORMAL 1000        // 1000 ms per outside second = normal
+#define RATE_MIN 100           // 100 ms per outside second = 90% slower
+#define RATE_MAX 1000          // Maximum rate (normal speed)

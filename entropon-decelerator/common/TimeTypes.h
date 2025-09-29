@@ -13,10 +13,6 @@
 #define MILLIS_PER_MINUTE 60000UL
 #define MILLIS_PER_SECOND 1000UL
 
-// Fixed-point Q16 constants
-#define Q16_ONE 65536L
-#define Q16_HALF 32768L
-
 struct TimeValue {
     uint32_t millisSinceMidnight;
     
@@ -95,24 +91,26 @@ struct ExhibitState {
     
     State current;
     uint32_t elapsedMillis;
-    int32_t chamberRateQ16;  // Fixed-point Q16 format (1.0 = 65536)
+    uint16_t chamberRateMs;      // Milliseconds per outside second (1000 = normal)
+    uint16_t savedMinRate;        // Rate when deceleration ended (for recovery)
     
     // Initialize to default state
     void reset() {
         current = NORMAL;
         elapsedMillis = 0;
-        chamberRateQ16 = Q16_ONE;
+        chamberRateMs = RATE_NORMAL;
+        savedMinRate = RATE_NORMAL;
     }
     
-    // Convert rate to human-readable float (for display)
-    float getRateAsFloat() const {
-        return (float)chamberRateQ16 / (float)Q16_ONE;
-    }
+    // // Convert rate to human-readable float (for display)
+    // float getRateAsFloat() const {
+    //     return (float)chamberRateQ16 / (float)Q16_ONE;
+    // }
     
-    // Get seconds lost per second (for meter display)
-    float getSecondsLostPerSecond() const {
-        return 1.0f - getRateAsFloat();
-    }
+    // // Get seconds lost per second (for meter display)
+    // float getSecondsLostPerSecond() const {
+    //     return 1.0f - getRateAsFloat();
+    // }
 };
 
 #endif // TIME_TYPES_H

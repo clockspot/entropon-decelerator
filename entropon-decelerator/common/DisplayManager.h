@@ -176,19 +176,20 @@ public:
     }
     
     // Update analog meter with PWM
-    void updateMeter(int32_t rateQ16) {
-        // Convert Q16 rate to seconds lost per second
-        // Rate of 1.0 (Q16_ONE) = 0 seconds lost
-        // Rate of 0.0 = 1 second lost per second
-        float rate = (float)rateQ16 / (float)Q16_ONE;
-        float secondsLost = 1.0f - rate;
+    void updateMeter(uint16_t rateMs) {
+        // Convert milliseconds per second to seconds lost per second
+        // 1000 ms/s = 0 seconds lost
+        // 500 ms/s = 0.5 seconds lost  
+        // 0 ms/s = 1 second lost
         
-        // Clamp to 0-1 range
-        if (secondsLost < 0.0f) secondsLost = 0.0f;
-        if (secondsLost > 1.0f) secondsLost = 1.0f;
+        uint8_t pwmValue;
+        if (rateMs >= 1000) {
+            pwmValue = 0;
+        } else {
+            // pwmValue = 255 * (1000 - rateMs) / 1000
+            pwmValue = (255 * (1000 - rateMs)) / 1000;
+        }
         
-        // Convert to PWM value (0-255)
-        uint8_t pwmValue = (uint8_t)(secondsLost * 255.0f);
         analogWrite(meterPin, pwmValue);
     }
     
@@ -231,10 +232,10 @@ public:
         //     digitalWrite(ledPins[i], LOW);
         // }
         analogWrite(meterPin, 128); //TODO need to make the needle move gently
-        digitalClocks[0]->showString("Outsid");
-        digitalClocks[1]->showString("Chambr");
-        digitalClocks[2]->showString("Differ");
-        digitalClocks[3]->showString("Elapsd");
+        digitalClocks[0]->showString("OUT");
+        digitalClocks[1]->showString("CHA");
+        digitalClocks[2]->showString("DIF");
+        digitalClocks[3]->showString("ELP");
         delay(1000); //fix this
         
         // Clear everything
