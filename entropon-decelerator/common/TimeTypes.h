@@ -98,8 +98,8 @@ struct ExhibitState {
     void reset() {
         current = NORMAL;
         elapsedMillis = 0;
-        chamberRateMs = RATE_NORMAL;
-        savedMinRate = RATE_NORMAL;
+        chamberRateMs = 1000;
+        savedMinRate = 1000;
     }
     
     // // Convert rate to human-readable float (for display)

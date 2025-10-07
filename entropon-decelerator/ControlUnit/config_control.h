@@ -18,18 +18,34 @@
 //TODO I2C SCL?
 // #define RTC_ENABLED
 
+//PCF8574 pin expander for digital displays
+#define DIGITAL_PCF8574_ADDRESS 0x20
+
 //DisplayManager
-#define PIN_DIGITAL_OUT_DIO 8
-#define PIN_DIGITAL_OUT_CLK 9
+// #define PIN_DIGITAL_OUT_DIO 8
+// #define PIN_DIGITAL_OUT_CLK 9
 
-#define PIN_DIGITAL_CHM_DIO 2
-#define PIN_DIGITAL_CHM_CLK 3
+// #define PIN_DIGITAL_CHM_DIO 2
+// #define PIN_DIGITAL_CHM_CLK 3
 
-#define PIN_DIGITAL_DIF_DIO 10
-#define PIN_DIGITAL_DIF_CLK 11
+// #define PIN_DIGITAL_DIF_DIO 10
+// #define PIN_DIGITAL_DIF_CLK 11
 
-#define PIN_DIGITAL_ELP_DIO 12
-#define PIN_DIGITAL_ELP_CLK 13 //blinky!
+// #define PIN_DIGITAL_ELP_DIO 12
+// #define PIN_DIGITAL_ELP_CLK 13 //blinky!
+
+//Pins on pin expander
+#define PIN_DIGITAL_OUT_DIO 7
+#define PIN_DIGITAL_OUT_CLK 6
+
+#define PIN_DIGITAL_CHM_DIO 5
+#define PIN_DIGITAL_CHM_CLK 4
+
+#define PIN_DIGITAL_DIF_DIO 3
+#define PIN_DIGITAL_DIF_CLK 2
+
+#define PIN_DIGITAL_ELP_DIO 1
+#define PIN_DIGITAL_ELP_CLK 0
 
 // #define PIN_LED_NORMAL 4
 // #define PIN_LED_DECEL 5
@@ -53,6 +69,4 @@
 #define DISPLAY_UPDATE_INTERVAL 50  // milliseconds
 
 // Constants for rate calculation
-#define RATE_NORMAL 1000        // 1000 ms per outside second = normal
-#define RATE_MIN 100           // 100 ms per outside second = 90% slower
-#define RATE_MAX 1000          // Maximum rate (normal speed)
+#define RATE_MIN 0          // 100 ms per outside second = 90% slower

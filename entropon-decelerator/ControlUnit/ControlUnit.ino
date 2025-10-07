@@ -1,6 +1,7 @@
 // ControlUnit.ino
 #include <Wire.h>
 #include <RTClib.h>
+// #include <PCF8574.h>
 // #include <SoftwareSerial.h>
 //https://forum.arduino.cc/t/using-additional-serial-ports/605955
 //https://learn.adafruit.com/using-atsamd21-sercom-to-add-more-spi-i2c-serial-ports/overview
@@ -14,15 +15,12 @@ TimeValue outsideTime;
 TimeValue chamberTime;
 ExhibitState state;
 DisplayManager display( //TODO incorporate per config TODO can the clk pin be shared?
-    PIN_DIGITAL_OUT_CLK, PIN_DIGITAL_OUT_DIO, //Digital outside time
-    PIN_DIGITAL_CHM_CLK, PIN_DIGITAL_CHM_DIO, //Digital chamber time
-    PIN_DIGITAL_DIF_CLK, PIN_DIGITAL_DIF_DIO, //Digital difference
-    PIN_DIGITAL_ELP_CLK, PIN_DIGITAL_ELP_DIO, //Digital elapsed
-    // PIN_LED_NORMAL, PIN_LED_DECEL, PIN_LED_RECOVERY, //LEDs
-    PIN_METER_PWM //, //Meter
-    // PIN_ANALOG_OUT_A, PIN_ANALOG_OUT_B, //Analog outside time
-    // PIN_ANALOG_CHM_A, PIN_ANALOG_CHM_B, //Analog chamber time
-    // PIN_ANALOG_DIF_A, PIN_ANALOG_DIF_B //Analog difference (saved) time
+  DIGITAL_PCF8574_ADDRESS,
+  // PIN_LED_NORMAL, PIN_LED_DECEL, PIN_LED_RECOVERY, //LEDs
+  PIN_METER_PWM //, //Meter
+  // PIN_ANALOG_OUT_A, PIN_ANALOG_OUT_B, //Analog outside time
+  // PIN_ANALOG_CHM_A, PIN_ANALOG_CHM_B, //Analog chamber time
+  // PIN_ANALOG_DIF_A, PIN_ANALOG_DIF_B //Analog difference (saved) time
 );
 
 #ifdef RTC_ENABLED
@@ -50,6 +48,7 @@ uint32_t lastSavedSeconds = 0;
 uint32_t lastLoopMillis = 0;
 
 void setup() {
+  delay(2000);
     Serial.begin(115200);
     Serial.println("");
     Serial.println("Hello world");
@@ -68,7 +67,7 @@ void setup() {
     //PIN_POT_MAX_NEG
     //PIN_POT_MAX_POS
     //PIN_POT_MIN_RATE
-    
+
     #ifdef RTC_ENABLED
       // Initialize RTC
       if (!rtc.begin()) {
@@ -95,7 +94,7 @@ void loop() {
     outsideTime.addMillis(deltaMillis);
     
     // Calculate chamber time rate based on state
-    updateChamberRate();
+    // updateChamberRate();
     
     // Calculate chamber time delta using the rate
     // chamberDelta = deltaMillis * (chamberRateMs / 1000)
@@ -143,27 +142,35 @@ void loop() {
 void updateChamberRate() {
     if(state.current==ExhibitState::NORMAL) return;
 
-    // Read potentiometers
-    #ifdef PIN_POT_MAX_NEG
-      uint16_t potMaxNeg = analogRead(PIN_POT_MAX_NEG);
-    #else
+    // // Read potentiometers
+    // #ifdef PIN_POT_MAX_NEG
+    //   uint16_t potMaxNeg = analogRead(PIN_POT_MAX_NEG);
+    // #else
       uint16_t potMaxNeg = 512;
-    #endif
+    // #endif
 
-    #ifdef PIN_POT_MAX_POS
-      uint16_t potMaxPos = analogRead(PIN_POT_MAX_POS);
-    #else
+    // #ifdef PIN_POT_MAX_POS
+    //   uint16_t potMaxPos = analogRead(PIN_POT_MAX_POS);
+    // #else
       uint16_t potMaxPos = 512;
-    #endif
+    // #endif
 
-    #ifdef PIN_POT_MIN_RATE
-      uint16_t potMinRate = analogRead(PIN_POT_MIN_RATE);
-    #else
+    // #ifdef PIN_POT_MIN_RATE
+    //   uint16_t potMinRate = analogRead(PIN_POT_MIN_RATE);
+    // #else
       uint16_t potMinRate = 512;
-    #endif
+    // #endif
 
     // Minimum rate from pot (100-1000 ms per second)
-    uint16_t minRate = 100 + ((uint32_t)potMinRate * 900) / 1023;
+    uint16_t minRate = RATE_MIN; // + ((uint32_t)potMinRate * 1000-RATE_MIN) / 1023;
+
+    //The chamber rate will be somewhere between 1000 and RATE_MIN (likely 100) ms/sec.
+    //The change rate will be somewhere between POWER (eg 20) and 1 ms/sec/sec.
+
+    //Linear interpolation
+    uint8_t changeRate = 1 + (state.chamberRateMs - minRate) * (20 - 1) / (1000 - minRate);
+
+
     
     // Deceleration/recovery duration from pots (2-20 seconds)
     uint32_t decelDuration = 2000 + ((uint32_t)(1023 - potMaxNeg) * 18000) / 1023;
@@ -177,7 +184,7 @@ void updateChamberRate() {
             } else {
                 // Linear interpolation from 1000 to minRate
                 uint32_t progress = (state.elapsedMillis * 1000) / decelDuration;
-                state.chamberRateMs = RATE_NORMAL - ((RATE_NORMAL - minRate) * progress) / 1000;
+                state.chamberRateMs = 1000 - ((1000 - minRate) * progress) / 1000;
             }
             break;
         }
@@ -185,12 +192,12 @@ void updateChamberRate() {
         case ExhibitState::RECOVERY: {
             if (state.elapsedMillis >= recoveryDuration) {
                 // Back to normal
-                state.chamberRateMs = RATE_NORMAL;
+                state.chamberRateMs = 1000;
             } else {
                 // Linear interpolation from savedMinRate to 1000
                 uint32_t progress = (state.elapsedMillis * 1000) / recoveryDuration;
                 state.chamberRateMs = state.savedMinRate + 
-                    ((RATE_NORMAL - state.savedMinRate) * progress) / 1000;
+                    ((1000 - state.savedMinRate) * progress) / 1000;
             }
             break;
         }
@@ -207,6 +214,7 @@ void handleStateTransitions() {
                 state.current = ExhibitState::DECELERATION;
                 Serial.println("Decelerating");
                 state.elapsedMillis = 0;
+                state.chamberRateMs = 800;
                 decelStartTime = millis();
             }
             break;
@@ -220,6 +228,7 @@ void handleStateTransitions() {
                 state.current = ExhibitState::RECOVERY;
                 Serial.println("Recovering");
                 state.elapsedMillis = 0;
+                state.chamberRateMs = 1700;
                 recoverStartTime = millis();
                 printCertificate();
             }
@@ -228,8 +237,9 @@ void handleStateTransitions() {
         case ExhibitState::RECOVERY:
             state.elapsedMillis = millis() - recoverStartTime;
             
-            if (state.chamberRateMs >= RATE_NORMAL-(RATE_NORMAL/100)) { //within 1% of RATE_NORMAL
-                state.chamberRateMs = RATE_NORMAL;
+            if (outsideTime.getDifferenceMillis(chamberTime)<0) {
+            // if (state.chamberRateMs >= 1000-(1000/100)) { //within 1% of 1000
+                state.chamberRateMs = 1000;
                 state.current = ExhibitState::NORMAL;
                 Serial.println("Normal");
                 state.elapsedMillis = 0;
