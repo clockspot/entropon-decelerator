@@ -18,47 +18,38 @@
 //TODO I2C SCL?
 // #define RTC_ENABLED
 
-//PCF8574 pin expander for digital displays
-#define DIGITAL_PCF8574_ADDRESS 0x20
 
-//DisplayManager
-// #define PIN_DIGITAL_OUT_DIO 8
-// #define PIN_DIGITAL_OUT_CLK 9
+//Digital clocks
+#define PIN_DIGITAL_OUT_DIO 8
+#define PIN_DIGITAL_OUT_CLK 9
 
-// #define PIN_DIGITAL_CHM_DIO 2
-// #define PIN_DIGITAL_CHM_CLK 3
+#define PIN_DIGITAL_CHM_DIO 2
+#define PIN_DIGITAL_CHM_CLK 3
 
-// #define PIN_DIGITAL_DIF_DIO 10
-// #define PIN_DIGITAL_DIF_CLK 11
+#define PIN_DIGITAL_DIF_DIO 10
+#define PIN_DIGITAL_DIF_CLK 11
 
-// #define PIN_DIGITAL_ELP_DIO 12
-// #define PIN_DIGITAL_ELP_CLK 13 //blinky!
+#define PIN_DIGITAL_ELP_DIO 12
+#define PIN_DIGITAL_ELP_CLK 13 //blinky!
 
-//Pins on pin expander
-#define PIN_DIGITAL_OUT_DIO 7
-#define PIN_DIGITAL_OUT_CLK 6
+//Brightness
+#define DIGITAL_OUT_BRIGHTNESS 0x0F
+#define DIGITAL_CHM_BRIGHTNESS 0x0A
+#define DIGITAL_DIF_BRIGHTNESS 0x0C
+#define DIGITAL_ELP_BRIGHTNESS 0x01
 
-#define PIN_DIGITAL_CHM_DIO 5
-#define PIN_DIGITAL_CHM_CLK 4
-
-#define PIN_DIGITAL_DIF_DIO 3
-#define PIN_DIGITAL_DIF_CLK 2
-
-#define PIN_DIGITAL_ELP_DIO 1
-#define PIN_DIGITAL_ELP_CLK 0
-
-// #define PIN_LED_NORMAL 4
-// #define PIN_LED_DECEL 5
-// #define PIN_LED_RECOVERY 6
+#define PIN_LED_DECEL 5
+#define PIN_LED_RECOVERY 6
+#define PIN_LED_STABLE 4
 
 #define PIN_METER_PWM 6
 
-// #define PIN_ANALOG_OUT_A 16
-// #define PIN_ANALOG_OUT_B 17
-// #define PIN_ANALOG_CHM_A 18
-// #define PIN_ANALOG_CHM_B 19
-// #define PIN_ANALOG_DIF_A 20
-// #define PIN_ANALOG_DIF_B 21
+// Analog clock pins via PCF8574 I2C expander
+#define ANALOG_EXPANDER_ADDRESS 0x20
+//the OUT, CHM, DIF analog clocks must be wired to pins 0-5
+#define ANALOG_PULSE_WIDTH 40
+#define ANALOG_MAX_TICK_RATE 200
+
 
 
 // Timing parameters

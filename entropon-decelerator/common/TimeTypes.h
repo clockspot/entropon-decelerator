@@ -29,29 +29,13 @@ struct TimeValue {
         }
     }
     
-    // Get time components
-    uint8_t getHours() const {
-        return (millisSinceMidnight / MILLIS_PER_HOUR) % 24;
-    }
-    
-    uint8_t getMinutes() const {
-        return (millisSinceMidnight / MILLIS_PER_MINUTE) % 60;
-    }
-    
-    uint8_t getSeconds() const {
-        return (millisSinceMidnight / MILLIS_PER_SECOND) % 60;
-    }
-
-    uint16_t getMils() const {
-        return millisSinceMidnight % MILLIS_PER_SECOND;
-    }
-    
+    // Get time components    
     uint32_t getHHMMSS() const {
         return getHours() * 10000L + getMinutes() * 100L + getSeconds();
     }
 
-    uint32_t getMMSSDD() const { //DD = decimal
-        return getMinutes() * 10000L + getSeconds() * 100L + (getMils()%1000)/10;
+    bool getBlink() const {
+        return getMils()/500;
     }
     
     // Get total seconds (for display purposes)
@@ -101,16 +85,6 @@ struct ExhibitState {
         chamberRateMs = 1000;
         savedMinRate = 1000;
     }
-    
-    // // Convert rate to human-readable float (for display)
-    // float getRateAsFloat() const {
-    //     return (float)chamberRateQ16 / (float)Q16_ONE;
-    // }
-    
-    // // Get seconds lost per second (for meter display)
-    // float getSecondsLostPerSecond() const {
-    //     return 1.0f - getRateAsFloat();
-    // }
 };
 
 #endif // TIME_TYPES_H

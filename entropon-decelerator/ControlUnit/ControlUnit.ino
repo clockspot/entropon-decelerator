@@ -112,6 +112,7 @@ void loop() {
     if(state.current == ExhibitState::DECELERATION) display.updateDigitalClockElapsed(state.elapsedMillis);
     display.updateMeter(state.chamberRateMs);
     display.updateLEDs(state.current);
+    display.updateAnalogClocks();
 
     // Communicate with chamber unit
     #ifdef PIN_CHAMBER_TX
@@ -129,8 +130,7 @@ void loop() {
     
     // Re-sync with RTC at midnight
     #ifdef RTC_ENABLED
-      if (state.current == ExhibitState::NORMAL && outsideTime.getHours() == 0 && 
-          outsideTime.getMinutes() == 0 && outsideTime.getSeconds() < 2) {
+      if (state.current == ExhibitState::NORMAL && outsideTime.getHHMMSS() < 2) {
             //TODO is there a more elegant way to catch this transition?
           syncTimeFromRTC();
       }
