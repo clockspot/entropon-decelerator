@@ -14,14 +14,7 @@
 TimeValue outsideTime;
 TimeValue chamberTime;
 ExhibitState state;
-DisplayManager display( //TODO incorporate per config TODO can the clk pin be shared?
-  DIGITAL_PCF8574_ADDRESS,
-  // PIN_LED_NORMAL, PIN_LED_DECEL, PIN_LED_RECOVERY, //LEDs
-  PIN_METER_PWM //, //Meter
-  // PIN_ANALOG_OUT_A, PIN_ANALOG_OUT_B, //Analog outside time
-  // PIN_ANALOG_CHM_A, PIN_ANALOG_CHM_B, //Analog chamber time
-  // PIN_ANALOG_DIF_A, PIN_ANALOG_DIF_B //Analog difference (saved) time
-);
+DisplayManager display;
 
 #ifdef RTC_ENABLED
   RTC_DS3231 rtc;
@@ -48,7 +41,7 @@ uint32_t lastSavedSeconds = 0;
 uint32_t lastLoopMillis = 0;
 
 void setup() {
-  delay(2000);
+    delay(2000);
     Serial.begin(115200);
     Serial.println("");
     Serial.println("Hello world");
@@ -106,13 +99,17 @@ void loop() {
     handleStateTransitions();
     
     // Update displays
-    display.updateDigitalClock(0,outsideTime);
-    display.updateDigitalClock(1,chamberTime);
-    display.updateDigitalClockDifference(outsideTime,chamberTime); //TODO does this deal with rollover?
-    if(state.current == ExhibitState::DECELERATION) display.updateDigitalClockElapsed(state.elapsedMillis);
+    display.cycleAnalogClock(0);
+    display.cycleAnalogClock(1);
+    display.updateOutsideTime(outsideTime);
+    display.updateChamberTime(chamberTime);
+    display.cycleAnalogClock(2);
+    display.updateDifferenceTime(outsideTime,chamberTime); //TODO does this deal with rollover?
+    if(state.current == ExhibitState::DECELERATION) {
+      display.updateElapsedTime(state.elapsedMillis);
+    }
     display.updateMeter(state.chamberRateMs);
     display.updateLEDs(state.current);
-    display.updateAnalogClocks();
 
     // Communicate with chamber unit
     #ifdef PIN_CHAMBER_TX
@@ -210,11 +207,11 @@ void handleStateTransitions() {
     
     switch (state.current) {
         case ExhibitState::NORMAL:
-            if (digitalRead(PIN_START_BUTTON) == LOW) {
+            if (digitalRead(PIN_START_BUTTON) == PIN_START_BUTTON_PRESSED) {
                 state.current = ExhibitState::DECELERATION;
                 Serial.println("Decelerating");
                 state.elapsedMillis = 0;
-                state.chamberRateMs = 800;
+                state.chamberRateMs = 500;
                 decelStartTime = millis();
             }
             break;
@@ -222,15 +219,16 @@ void handleStateTransitions() {
         case ExhibitState::DECELERATION:
             state.elapsedMillis = millis() - decelStartTime;
             
-            if (digitalRead(PIN_STOP_BUTTON) == LOW || 
-              state.chamberRateMs <= 110) {  // Within 10% of minimum
+            if (digitalRead(PIN_STOP_BUTTON) == PIN_STOP_BUTTON_PRESSED
+              || state.chamberRateMs <= 110
+            ) {  // Within 10% of minimum
               //TODO that's not what I meant
+                printCertificate(); //needs state.elapsedMillis to not be zeroed yet
                 state.current = ExhibitState::RECOVERY;
                 Serial.println("Recovering");
                 state.elapsedMillis = 0;
-                state.chamberRateMs = 1700;
+                state.chamberRateMs = 2400;
                 recoverStartTime = millis();
-                printCertificate();
             }
             break;
             
@@ -251,16 +249,21 @@ void handleStateTransitions() {
 }
 
 void printCertificate() {
-  #ifdef PIN_PRINTER_TX
-    uint32_t timeDiff = abs((int32_t)(outsideTime.millisSinceMidnight - 
+  uint32_t timeDiff = abs((int32_t)(outsideTime.millisSinceMidnight - 
                             chamberTime.millisSinceMidnight));
-    uint32_t secondsSaved = timeDiff / 1000;
-    uint32_t secondsSpent = state.elapsedMillis / 1000;
-    
+  uint32_t secondsSaved = timeDiff / 1000;
+  uint32_t secondsSpent = state.elapsedMillis / 1000;
+  #ifdef PIN_PRINTER_TX    
     printerSerial.print(F("I spent "));
     printerSerial.print(secondsSpent);
     printerSerial.print(F(" seconds to save "));
     printerSerial.print(secondsSaved);
     printerSerial.println(F(" seconds in the chamber"));
+  #else
+    Serial.print(F("I spent "));
+    Serial.print(secondsSpent);
+    Serial.print(F(" seconds to save "));
+    Serial.print(secondsSaved);
+    Serial.println(F(" seconds in the chamber"));
   #endif
 }

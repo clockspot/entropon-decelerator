@@ -31,19 +31,19 @@ struct TimeValue {
     
     // Get time components    
     uint32_t getHHMMSS() const {
-        return getHours() * 10000L + getMinutes() * 100L + getSeconds();
+        return  (millisSinceMidnight / MILLIS_PER_HOUR) % 24 * 10000L + 
+                (millisSinceMidnight / MILLIS_PER_MINUTE) % 60 * 100L +
+                (millisSinceMidnight / MILLIS_PER_SECOND) % 60;
     }
 
     bool getBlink() const {
-        return getMils()/500;
+        return millisSinceMidnight % MILLIS_PER_SECOND / 500;
     }
     
-    // Get total seconds (for display purposes)
     uint32_t getTotalSeconds() const {
         return millisSinceMidnight / MILLIS_PER_SECOND;
     }
     
-    // Calculate difference between two times (handling midnight wrap)
     int32_t getDifferenceMillis(const TimeValue& other) const {
         int32_t diff = (int32_t)millisSinceMidnight - (int32_t)other.millisSinceMidnight;
         
