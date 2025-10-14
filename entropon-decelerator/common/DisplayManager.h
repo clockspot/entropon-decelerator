@@ -23,7 +23,6 @@ private:
     PCF8574* analogClocks;
     uint8_t analogClockCurrent[3];
     uint8_t analogClockTarget[3];
-    // bool analogClockEnergized[3];
     unsigned long analogClockLastTick[3];
 
 public:
@@ -127,31 +126,37 @@ public:
         }
     }
 
-    void cycleAnalogClock(int i) {
+    void cycleAnalogClocks() {
         //Run on every loop. Controls advance of clocks to targets by switching pins per pulse width and max tick rate.
         //TODO if delays of over 60sec occur, it will sync up, but a minute behind. Solution: track more than secs?
         //clock 0 is pins 0 (even) and 1 (odd); 1 is 2 and 3; 2 is 4 and 5. Thus pin is i*2+(sec%2)
-        // bool clockTicks[3];
+        unsigned long startMils = 0;
+        unsigned long diffMils = 0;
+        bool analogClockPinState[6];
+        for(int i=0; i<5; i++) analogClockPinState[i]=0;
+        //Check if a tick is needed
         for(int i=0; i<3; i++) {
-            //If we are in the middle of a tick pulse, turn it off once it's been long enough
-            if(analogClockEnergized[i]) { //Figure this is faster than checking the pin state via expander
-                if(i==0) Serial.print(millis()-analogClockLastTick[i]);
-                if(millis()-analogClockLastTick[i] > ANALOG_PULSE_WIDTH) {
-                    if(i==0) Serial.println("!");
-                    analogClocks->write(i*2+(analogClockCurrent[i]%2), LOW);
-                    analogClockEnergized[i] = false;
-                } else {
-                    if(i==0) Serial.println("...");
-                }
-            }
-            //If we need to tick, start a tick, as long as the previous tick was long enough ago
-            else if(analogClockCurrent[i] != analogClockTarget[i]) {
+            if(analogClockCurrent[i] != analogClockTarget[i]) {
                 if(millis()-analogClockLastTick[i] > ANALOG_MAX_TICK_RATE) {
                     analogClockCurrent[i]++; if(analogClockCurrent[i]>=60) analogClockCurrent[i]=0;
                     analogClockLastTick[i] = millis();
-                    analogClocks->write(i*2+(analogClockCurrent[i]%2), HIGH);
-                    analogClockEnergized[i] = true;
+                    analogClockPinState[i*2+(analogClockCurrent[i]%2)] = true;
                 }
+            }
+        }
+        //Switch pins on
+        for(int i=0; i<6; i++) {
+            if(analogClockPinState[i]) {
+                if(startMils==0) startMils = millis();
+                analogClocks->write(i, HIGH);
+            }
+        }
+        delay(ANALOG_PULSE_WIDTH); //The only place this is acceptable since the timing of the pulse is so crucial, it can't be left to loop polling
+        //Switch pins off
+        for(int i=0; i<6; i++) {
+            if(analogClockPinState[i]) {
+                if(startMils!=0) diffMils = millis() - startMils;
+                analogClocks->write(i, LOW);
             }
         }
         //The digital clocks do not need a similar function, as the TM1637 handles this.

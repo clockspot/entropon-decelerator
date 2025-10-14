@@ -99,15 +99,13 @@ void loop() {
     handleStateTransitions();
     
     // Update displays
-    display.cycleAnalogClock(0);
-    display.cycleAnalogClock(1);
     display.updateOutsideTime(outsideTime);
     display.updateChamberTime(chamberTime);
-    display.cycleAnalogClock(2);
     display.updateDifferenceTime(outsideTime,chamberTime); //TODO does this deal with rollover?
     if(state.current == ExhibitState::DECELERATION) {
       display.updateElapsedTime(state.elapsedMillis);
     }
+    display.cycleAnalogClocks();
     display.updateMeter(state.chamberRateMs);
     display.updateLEDs(state.current);
 
