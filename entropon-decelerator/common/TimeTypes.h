@@ -75,7 +75,7 @@ struct ExhibitState {
     
     State current;
     uint32_t elapsedMillis;
-    uint16_t chamberRateMs;      // Milliseconds per outside second (1000 = normal)
+    uint16_t chamberRateMs;      // Milliseconds per normal second (1000 = normal)
     uint16_t savedMinRate;        // Rate when deceleration ended (for recovery)
     
     // Initialize to default state

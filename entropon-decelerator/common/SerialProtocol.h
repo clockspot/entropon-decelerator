@@ -40,9 +40,9 @@ public:
     }
     
     // Send time update
-    void sendTimeUpdate(const TimeValue& outside, const TimeValue& chamber) {
+    void sendTimeUpdate(const TimeValue& normal, const TimeValue& chamber) {
         uint8_t payload[sizeof(TimeValue) * 2];
-        memcpy(payload, &outside, sizeof(TimeValue));
+        memcpy(payload, &normal, sizeof(TimeValue));
         memcpy(payload + sizeof(TimeValue), &chamber, sizeof(TimeValue));
         sendMessage(MSG_TIME, payload, sizeof(TimeValue) * 2);
     }
@@ -125,7 +125,7 @@ public:
     }
     
     // Process incoming messages (helper for common patterns)
-    bool processIncoming(ExhibitState* state, TimeValue* outside, TimeValue* chamber) {
+    bool processIncoming(ExhibitState* state, TimeValue* normal, TimeValue* chamber) {
         uint8_t msgType;
         uint8_t payload[MAX_PAYLOAD_SIZE];
         uint16_t payloadLength;
@@ -141,7 +141,7 @@ public:
                     
                 case MSG_TIME:
                     if (payloadLength == sizeof(TimeValue) * 2) {
-                        memcpy(outside, payload, sizeof(TimeValue));
+                        memcpy(normal, payload, sizeof(TimeValue));
                         memcpy(chamber, payload + sizeof(TimeValue), sizeof(TimeValue));
                         return true;
                     }

@@ -6,32 +6,44 @@
 #define DISPLAY_MANAGER_H
 
 #include <Arduino.h>
-#include <Wire.h>
-#include <PCF8574.h> // For analog clocks
-#include <TM1637TinyDisplay6.h>  // For digital clocks
+#ifdef EXPANDER_ADDRESS //only control unit has this
+  #include <Wire.h>
+  #include <PCF8574.h> // Pin expander for analog clocks and relays
+#endif
+#ifdef PIN_DIGITAL_NOR_CLK
+    #include <TM1637TinyDisplay6.h>  // For digital clocks
+#endif
 #include "TimeTypes.h"
-#include "config_control.h" //Decided to pull these values in directly since they are immutable
+#include "config.h"
 
 class DisplayManager {
 private:
     //See updateDigitalClock()
-    TM1637TinyDisplay6* digitalClocks[4];
     uint32_t digitalClockCurrent[4]; //We will only update when time/blink changes
     bool digitalClockCurrentBlink[2]; //only the first two clocks blink
+    #ifdef PIN_DIGITAL_NOR_CLK
+        TM1637TinyDisplay6* digitalClocks[4];
+    #endif
 
-    //See cycleAnalogClocks()
-    PCF8574* analogClocks;
-    uint8_t analogClockCurrent[3];
-    uint8_t analogClockTarget[3];
-    unsigned long analogClockLastTick[3];
+    #ifdef EXPANDER_ADDRESS
+        PCF8574* expander;
+        //See cycleAnalogClocks()
+        uint8_t analogClockCurrent[3];
+        uint8_t analogClockTarget[3];
+        unsigned long analogClockLastTick[3];
+    #endif
 
 public:
     DisplayManager() {
-        digitalClocks[0] = new TM1637TinyDisplay6(PIN_DIGITAL_OUT_CLK, PIN_DIGITAL_OUT_DIO);
-        digitalClocks[1] = new TM1637TinyDisplay6(PIN_DIGITAL_CHM_CLK, PIN_DIGITAL_CHM_DIO);
-        digitalClocks[2] = new TM1637TinyDisplay6(PIN_DIGITAL_DIF_CLK, PIN_DIGITAL_DIF_DIO);
-        digitalClocks[3] = new TM1637TinyDisplay6(PIN_DIGITAL_ELP_CLK, PIN_DIGITAL_ELP_DIO);
-        analogClocks = new PCF8574(ANALOG_EXPANDER_ADDRESS);        
+        #ifdef PIN_DIGITAL_NOR_CLK
+            digitalClocks[0] = new TM1637TinyDisplay6(PIN_DIGITAL_NOR_CLK, PIN_DIGITAL_NOR_DIO);
+            digitalClocks[1] = new TM1637TinyDisplay6(PIN_DIGITAL_CHM_CLK, PIN_DIGITAL_CHM_DIO);
+            digitalClocks[2] = new TM1637TinyDisplay6(PIN_DIGITAL_SAV_CLK, PIN_DIGITAL_SAV_DIO);
+            digitalClocks[3] = new TM1637TinyDisplay6(PIN_DIGITAL_ELP_CLK, PIN_DIGITAL_ELP_DIO);
+        #endif
+        #ifdef EXPANDER_ADDRESS
+            expander = new PCF8574(EXPANDER_ADDRESS);        
+        #endif
     }
     
     void begin() {
@@ -39,23 +51,30 @@ public:
         for(int i=0; i<4; i++) {
             digitalClockCurrent[i] = 60; //not a real time! you can't have 60 secs!
         }
-
-        //Initialize digital clocks
-        for(int i=0; i<4; i++) {
-            digitalClocks[i]->begin();
-            switch(i) {
-                case 0: digitalClocks[i]->setBrightness(DIGITAL_OUT_BRIGHTNESS); break;
-                case 1: digitalClocks[i]->setBrightness(DIGITAL_CHM_BRIGHTNESS); break;
-                case 2: digitalClocks[i]->setBrightness(DIGITAL_DIF_BRIGHTNESS); break;
-                case 3: digitalClocks[i]->setBrightness(DIGITAL_ELP_BRIGHTNESS); break;
+        #ifdef PIN_DIGITAL_NOR_CLK
+            //Initialize digital clocks
+            for(int i=0; i<4; i++) {
+                digitalClocks[i]->begin();
+                switch(i) {
+                    case 0: digitalClocks[i]->setBrightness(DIGITAL_NOR_BRIGHTNESS); break;
+                    case 1: digitalClocks[i]->setBrightness(DIGITAL_CHM_BRIGHTNESS); break;
+                    case 2: digitalClocks[i]->setBrightness(DIGITAL_SAV_BRIGHTNESS); break;
+                    case 3: digitalClocks[i]->setBrightness(DIGITAL_ELP_BRIGHTNESS); break;
+                }
+                digitalClocks[i]->clear();
             }
-            digitalClocks[i]->clear();
-        }
+        #endif
 
-        //Initialize analog clock pins via expander
-        Wire.begin();
-        analogClocks->begin();
-        analogClocks->selectNone(); //set all pins low
+        #ifdef EXPANDER_ADDRESS
+            //Initialize analog clock and relay pins via expander
+            Wire.begin();
+            expander->begin();
+            expander->selectNone(); //set all pins low
+        #endif
+
+        #ifdef PIN_ALT_RELAY
+            pinMode(PIN_ALT_RELAY,    OUTPUT); digitalWrite(PIN_ALT_RELAY,    LOW);
+        #endif
         
         // Set up LED pins
         pinMode(PIN_LED_DECEL,    OUTPUT); digitalWrite(PIN_LED_DECEL,    LOW);
@@ -67,29 +86,39 @@ public:
         analogWrite(PIN_METER_PWM, 0);
     }
 
-    void updateOutsideTime(const TimeValue& time) {
+    void updateNormalTime(const TimeValue& time) {
         updateDigitalClock(0, time.getHHMMSS(), time.getBlink());
-        analogClockTarget[0] = time.getTotalSeconds()%60;
+        #ifdef EXPANDER_ADDRESS
+            analogClockTarget[0] = time.getTotalSeconds()%60;
+        #endif
     }
 
     void updateChamberTime(const TimeValue& time) {
         updateDigitalClock(1, time.getHHMMSS(), time.getBlink());
-        analogClockTarget[1] = time.getTotalSeconds()%60;
+        #ifdef EXPANDER_ADDRESS
+            analogClockTarget[1] = time.getTotalSeconds()%60;
+        #endif
     }
     
-    void updateDifferenceTime(const TimeValue& outside, const TimeValue& chamber) {
-        int32_t diffMillis = outside.getDifferenceMillis(chamber);
+    void updateSavedTime(const TimeValue& normal, const TimeValue& chamber) {
+        int32_t diffMillis = normal.getDifferenceMillis(chamber);
         int curDifSec = digitalClockCurrent[2]%10000/100;
         updateDigitalClock(2, (diffMillis/1000/60) * 10000L + (diffMillis/1000%60) * 100L + (diffMillis%1000/10), true);
-        //Each time the difference second increases (including rollover), impulse analog clock for accumulated time saved
-        if(digitalClockCurrent[2]%10000/100 > curDifSec || curDifSec >= digitalClockCurrent[2]%10000/100 + 59) {
-            // Serial.println("DIF PULSE");
-            analogClockTarget[2]++; if(analogClockTarget[2]>=60) analogClockTarget[2]=0;
-        }
+        #ifdef EXPANDER_ADDRESS
+            //Each time the saved time second increases (including rollover), impulse analog clock for accumulated time saved
+            if(digitalClockCurrent[2]%10000/100 > curDifSec || curDifSec >= digitalClockCurrent[2]%10000/100 + 59) {
+                // Serial.println("DIF PULSE");
+                analogClockTarget[2]++; if(analogClockTarget[2]>=60) analogClockTarget[2]=0;
+            }
+        #endif
     }
     
     void updateElapsedTime(uint32_t elapsedMillis) {
         updateDigitalClock(3, (elapsedMillis/1000/3600%100) * 10000L + (elapsedMillis/1000/60%60) * 100L + (elapsedMillis/1000%60), true);
+    }
+
+    void displayDiagnostics(uint32_t code) {
+        updateDigitalClock(3, code, false);
     }
     
     // Update analog meter with PWM
@@ -109,24 +138,81 @@ public:
         analogWrite(PIN_METER_PWM, pwmValue);
     }
     
-    void updateLEDs(ExhibitState::State state) {
-        digitalWrite(PIN_LED_DECEL,    LOW);
-        digitalWrite(PIN_LED_RECOVERY, LOW);
-        digitalWrite(PIN_LED_STABLE,   LOW);
+    void updateVibes(uint16_t rateMs) {
+    #ifdef PIN_VIBES_PWM
+        // Convert milliseconds per second to seconds lost per second
+        // 1000 ms/s = 0 seconds lost
+        // 500 ms/s = 0.5 seconds lost  
+        // 0 ms/s = 1 second lost
+        
+        uint8_t pwmValue;
+        if (rateMs >= 1000) {
+            pwmValue = 0;
+        } else {
+            pwmValue = (METER_MAX * (1000 - rateMs)) / 1000;
+        }
+        
+        analogWrite(PIN_VIBES_PWM, pwmValue);
+    #endif
+    }
+    
+    void updateLEDs(ExhibitState::State state, const TimeValue& time) {
         switch (state) {
-            case ExhibitState::NORMAL:
-                digitalWrite(PIN_LED_STABLE, HIGH);
+            case ExhibitState::NORMAL: default:
+                digitalWrite(PIN_LED_DECEL,    LOW);
+                digitalWrite(PIN_LED_RECOVERY, LOW);
+                digitalWrite(PIN_LED_STABLE,   HIGH);
                 break;
             case ExhibitState::DECELERATION:
-                digitalWrite(PIN_LED_DECEL, HIGH);
+                // #ifdef IS_CONTROL_UNIT
+                    //Blink the lamp in time with normal clock colons
+                    digitalWrite(PIN_LED_DECEL,    !time.getBlink());
+                // #else
+                    // digitalWrite(PIN_LED_DECEL,    HIGH);
+                // #endif
+                digitalWrite(PIN_LED_RECOVERY, LOW);
+                digitalWrite(PIN_LED_STABLE,   LOW);
                 break;
             case ExhibitState::RECOVERY:
-                digitalWrite(PIN_LED_RECOVERY, HIGH);
+                digitalWrite(PIN_LED_DECEL,    LOW);
+                // #ifdef IS_CONTROL_UNIT
+                    //Blink the lamp in time with normal clock colons
+                    digitalWrite(PIN_LED_RECOVERY, !time.getBlink());
+                // #else
+                    // digitalWrite(PIN_LED_RECOVERY, HIGH);
+                // #endif
+                digitalWrite(PIN_LED_STABLE,   LOW);
+                break;
+        }
+    }
+
+    void updateRelays(ExhibitState::State state) {
+        switch (state) {
+            case ExhibitState::DECELERATION:
+                #ifdef EXPANDER_ADDRESS //TODO also EXPANDER_RELAYS in case expander is used for buttons instead
+                    expander->write(6, HIGH);
+                    expander->write(7, HIGH);
+                #endif
+                #ifdef PIN_ALT_RELAY
+                    digitalWrite(PIN_ALT_RELAY, HIGH);
+                #endif
+                break;
+            case ExhibitState::NORMAL:
+            case ExhibitState::RECOVERY:
+            default:
+                #ifdef EXPANDER_ADDRESS
+                    expander->write(6, LOW);
+                    expander->write(7, LOW);
+                #endif
+                #ifdef PIN_ALT_RELAY
+                    digitalWrite(PIN_ALT_RELAY, LOW);
+                #endif
                 break;
         }
     }
 
     void cycleAnalogClocks() {
+    #ifdef EXPANDER_ADDRESS
         //Run on every loop. Controls advance of clocks to targets by switching pins per pulse width and max tick rate.
         //TODO if delays of over 60sec occur, it will sync up, but a minute behind. Solution: track more than secs?
         //clock 0 is pins 0 (even) and 1 (odd); 1 is 2 and 3; 2 is 4 and 5. Thus pin is i*2+(sec%2)
@@ -148,7 +234,7 @@ public:
         for(int i=0; i<6; i++) {
             if(analogClockPinState[i]) {
                 if(startMils==0) startMils = millis();
-                analogClocks->write(i, HIGH);
+                expander->write(i, HIGH);
             }
         }
         delay(ANALOG_PULSE_WIDTH); //The only place this is acceptable since the timing of the pulse is so crucial, it can't be left to loop polling
@@ -156,46 +242,66 @@ public:
         for(int i=0; i<6; i++) {
             if(analogClockPinState[i]) {
                 if(startMils!=0) diffMils = millis() - startMils;
-                analogClocks->write(i, LOW);
+                expander->write(i, LOW);
             }
         }
         //The digital clocks do not need a similar function, as the TM1637 handles this.
+    #endif
     }
     
     void testPattern() {
-        
         // All on, all eights, needle rise
         // All LEDs on [wip]
         // for (int i = 0; i < 3; i++) {
         //     digitalWrite(ledPins[i], HIGH);
         // }
-        analogWrite(PIN_METER_PWM, 128); //TODO need to make the needle move gently
-        for (int i = 0; i < 4; i++) {
-            digitalClocks[i]->showString("888888");
-        }
-        delay(1000); //fix this
+        digitalWrite(PIN_LED_DECEL,    HIGH);
+        digitalWrite(PIN_LED_RECOVERY, HIGH);
+        digitalWrite(PIN_LED_STABLE,   HIGH);
+        #ifdef PIN_DIGITAL_NOR_CLK
+            for (int i = 0; i < 4; i++) digitalClocks[i]->showString("888888");
+        #endif
+        //TODO better way to make the needle move more gently
+        analogWrite(PIN_METER_PWM, (METER_MAX*1)/5);
+        delay(200);
+        analogWrite(PIN_METER_PWM, (METER_MAX*2)/5);
+        delay(200);
+        analogWrite(PIN_METER_PWM, (METER_MAX*3)/5);
+        delay(200);
+        analogWrite(PIN_METER_PWM, (METER_MAX*4)/5);
+        delay(200);
+        analogWrite(PIN_METER_PWM, METER_MAX);
         
-        // Fall, with display IDs
-        // for (int i = 0; i < 3; i++) { [wip]
-        //     digitalWrite(ledPins[i], LOW);
-        // }
-        analogWrite(PIN_METER_PWM, 128); //TODO need to make the needle move gently
-        digitalClocks[0]->showString("nor");
-        digitalClocks[1]->showString("cha");
-        digitalClocks[2]->showString("deL");
-        digitalClocks[3]->showString("ELP");
-        delay(1000); //fix this
+        #ifdef PIN_DIGITAL_NOR_CLK
+            digitalClocks[0]->showString("nor");
+            digitalClocks[1]->showString("CHA");
+            digitalClocks[2]->showString("SAU");
+            digitalClocks[3]->showString("ELP");
+        #endif
+        delay(5000);
         
         // Clear everything
-        for (int i = 0; i < 4; i++) {
-            digitalClocks[i]->clear();
-        }
-
+        //TODO better way to make the needle move more gently
+        analogWrite(PIN_METER_PWM, (METER_MAX*4)/5);
+        delay(200);
+        analogWrite(PIN_METER_PWM, (METER_MAX*3)/5);
+        delay(200);
+        analogWrite(PIN_METER_PWM, (METER_MAX*2)/5);
+        delay(200);
+        analogWrite(PIN_METER_PWM, (METER_MAX*1)/5);
+        delay(200);
         analogWrite(PIN_METER_PWM, 0);
+        digitalWrite(PIN_LED_DECEL,    LOW);
+        digitalWrite(PIN_LED_RECOVERY, LOW);
+        digitalWrite(PIN_LED_STABLE,   LOW);
+        #ifdef PIN_DIGITAL_NOR_CLK
+            for (int i = 0; i < 4; i++) digitalClocks[i]->showString("------");
+        #endif
     }
     
 private:
     void updateDigitalClock(int i, int32_t dec, bool colons) {
+        //TODO change colons to byte so you can have 1 or 2?
         //Sends update to TM1637 when display has changed
         if(digitalClockCurrent[i] != dec || (i<2 && digitalClockCurrentBlink[i] != colons)) {
             // if(i>1) {
@@ -209,11 +315,13 @@ private:
             // Serial.println();
 
             if(i<2) digitalClockCurrentBlink[i] = colons;
-            digitalClocks[i]->showNumberDec(
-                digitalClockCurrent[i],
-                ((i<2? 1-digitalClockCurrentBlink[i] : colons)? 0b01010000 : 0b00000000),
-                true, 6
-            );
+            #ifdef PIN_DIGITAL_NOR_CLK
+                digitalClocks[i]->showNumberDec(
+                    digitalClockCurrent[i],
+                    ((i<2? 1-digitalClockCurrentBlink[i] : colons)? 0b01010000 : 0b00000000),
+                    true, 6
+                );
+            #endif
         }
     }
 
