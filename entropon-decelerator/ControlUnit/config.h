@@ -63,3 +63,18 @@
 #define SERIAL_TIMEOUT 100        // milliseconds
 
 #define RATE_MIN 0          // 100 ms per normal second = 90% slower
+
+// network and printer
+//only wpa supported (cf. other repos for wep support)
+
+// #define NETWORK_SSID "..."
+// #define NETWORK_PASS "..."
+// #define NETWORK_TRY_NTP
+// #define NETWORK_TRY_PRINT
+#include "lm-network.h"
+
+#define BOCA_IP_A 192
+#define BOCA_IP_B 168
+#define BOCA_IP_C 1
+#define BOCA_IP_D 244
+#define BOCA_IP_PORT 9100

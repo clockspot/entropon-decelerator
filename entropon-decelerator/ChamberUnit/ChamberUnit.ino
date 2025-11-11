@@ -43,7 +43,7 @@ void setup() {
 
   // Test displays
   display.begin();
-  display.testPattern();
+  display.testPattern(0);
 
   // strip.begin();
   // strip.show();
@@ -109,6 +109,10 @@ void loop() {
         display.updateSavedTime(normalTime,chamberTime);
         display.updateElapsedTime(state.elapsedMillis);
         stopButtonArmed = true; //make it possible to stop
+      }
+      if(state.current == ExhibitState::NORMAL) { //unlike control unit, zero this display when it goes normal/ready
+        display.updateSavedTime(normalTime,chamberTime);
+        display.updateElapsedTime(0);
       }
     }
   #endif

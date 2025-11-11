@@ -248,7 +248,7 @@ public:
     #endif
     }
     
-    void testPattern() {
+    void testPattern(int networkState) {
         // All on, all eights, needle rise
         // All LEDs on [wip]
         // for (int i = 0; i < 3; i++) {
@@ -295,6 +295,7 @@ public:
         digitalWrite(PIN_LED_STABLE,   LOW);
         #ifdef PIN_DIGITAL_NOR_CLK
             for (int i = 0; i < 4; i++) digitalClocks[i]->showString("------");
+            if(networkState) digitalClocks[3]->showString(networkState>1? "WiFi Y": "WiFi n");
         #endif
     }
     
