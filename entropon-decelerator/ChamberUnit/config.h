@@ -24,7 +24,7 @@
 #define DIGITAL_SAV_BRIGHTNESS 0x0C
 #define DIGITAL_ELP_BRIGHTNESS 0x01
 
-//use 10/11/12 for motor(s) if they are PWM?
+//10/11/12 and 16 aka A2 are PWM (and other pins already in use)
 //#define PIN_VIBES_PWM
 // Effect parameters
 // #define VIBRATION_MIN_PWM 0
@@ -33,17 +33,18 @@
 //If implemented instead of above
 #define PIN_ALT_RELAY 13
 
-#define PIN_LED_STABLE 14 //aka READY in chamber
+//LEDs can be 10/11/12 or 14/15/16 aka A0/A1/A2 depending what needs analog/PWM
+#define PIN_LED_STABLE 11 //aka READY in chamber
+#define PIN_LED_DECEL 12
 #define PIN_LED_RECOVERY 15 //aka DONE in chamber
-#define PIN_LED_DECEL 16
 
 #define PIN_METER_PWM 17
 #define METER_MAX 222
 
 //I2C on 18/19 - n/a for chamber unit
 
-#define PIN_START_BUTTON 20
-#define PIN_START_BUTTON_PRESSED LOW
+// #define PIN_START_BUTTON 20 //not supported on chamber yet
+// #define PIN_START_BUTTON_PRESSED LOW
 #define PIN_STOP_BUTTON 21
 #define PIN_STOP_BUTTON_PRESSED LOW
 

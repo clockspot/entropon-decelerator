@@ -138,9 +138,9 @@ void loop() {
   display.updateRelays(state.current);
   display.updateMeter(state.chamberRateMs);
   display.updateNormalTime(normalTime);
-  display.updateChamberTime(chamberTime);
-  display.updateSavedTime(normalTime,chamberTime); //TODO does this deal with rollover?
+  display.updateChamberTime(chamberTime,state.current);
   if(state.current == ExhibitState::DECELERATION) {
+    display.updateSavedTime(normalTime,chamberTime);
     display.updateElapsedTime(state.elapsedMillis);
   }
   display.cycleAnalogClocks();

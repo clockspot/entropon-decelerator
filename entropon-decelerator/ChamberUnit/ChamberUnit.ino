@@ -104,9 +104,9 @@ void loop() {
       display.updateVibes(state.chamberRateMs);
       // updateRGBEffects();
       display.updateNormalTime(normalTime);
-      display.updateChamberTime(chamberTime);
-      display.updateSavedTime(normalTime,chamberTime);
+      display.updateChamberTime(chamberTime,state.current);
       if(state.current == ExhibitState::DECELERATION) {
+        display.updateSavedTime(normalTime,chamberTime);
         display.updateElapsedTime(state.elapsedMillis);
         stopButtonArmed = true; //make it possible to stop
       }

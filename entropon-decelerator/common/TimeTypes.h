@@ -37,7 +37,11 @@ struct TimeValue {
     }
 
     bool getBlink() const {
-        return millisSinceMidnight % MILLIS_PER_SECOND / 500;
+        return (millisSinceMidnight % MILLIS_PER_SECOND / 500)>=1;
+    }
+
+    bool getLongBlink() const {
+        return (millisSinceMidnight % MILLIS_PER_SECOND / 667)>=1;
     }
     
     uint32_t getTotalSeconds() const {

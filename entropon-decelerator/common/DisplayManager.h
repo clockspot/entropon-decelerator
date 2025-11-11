@@ -93,8 +93,8 @@ public:
         #endif
     }
 
-    void updateChamberTime(const TimeValue& time) {
-        updateDigitalClock(1, time.getHHMMSS(), time.getBlink());
+    void updateChamberTime(const TimeValue& time, ExhibitState::State state) {
+        updateDigitalClock(1, time.getHHMMSS(), state!=ExhibitState::RECOVERY && time.getBlink()); //do not blink during recovery
         #ifdef EXPANDER_ADDRESS
             analogClockTarget[1] = time.getTotalSeconds()%60;
         #endif
@@ -103,7 +103,8 @@ public:
     void updateSavedTime(const TimeValue& normal, const TimeValue& chamber) {
         int32_t diffMillis = normal.getDifferenceMillis(chamber);
         int curDifSec = digitalClockCurrent[2]%10000/100;
-        updateDigitalClock(2, (diffMillis/1000/60) * 10000L + (diffMillis/1000%60) * 100L + (diffMillis%1000/10), true);
+        // updateDigitalClock(2, (diffMillis/1000/60) * 10000L + (diffMillis/1000%60) * 100L + (diffMillis%1000/10), true); //min.sec.hunds
+        updateDigitalClock(2, (diffMillis/1000) * 100L + (diffMillis%1000/10), true); //sec.hunds
         #ifdef EXPANDER_ADDRESS
             //Each time the saved time second increases (including rollover), impulse analog clock for accumulated time saved
             if(digitalClockCurrent[2]%10000/100 > curDifSec || curDifSec >= digitalClockCurrent[2]%10000/100 + 59) {
@@ -114,7 +115,8 @@ public:
     }
     
     void updateElapsedTime(uint32_t elapsedMillis) {
-        updateDigitalClock(3, (elapsedMillis/1000/3600%100) * 10000L + (elapsedMillis/1000/60%60) * 100L + (elapsedMillis/1000%60), true);
+        // updateDigitalClock(3, (elapsedMillis/1000/3600%100) * 10000L + (elapsedMillis/1000/60%60) * 100L + (elapsedMillis/1000%60), true); //hr.min.sec
+        updateDigitalClock(3, (elapsedMillis/1000) * 100L + (elapsedMillis%1000/10), true); //sec.hunds
     }
 
     void displayDiagnostics(uint32_t code) {
@@ -164,23 +166,20 @@ public:
                 digitalWrite(PIN_LED_STABLE,   HIGH);
                 break;
             case ExhibitState::DECELERATION:
-                // #ifdef IS_CONTROL_UNIT
-                    //Blink the lamp in time with normal clock colons
-                    digitalWrite(PIN_LED_DECEL,    !time.getBlink());
-                // #else
-                    // digitalWrite(PIN_LED_DECEL,    HIGH);
-                // #endif
+                //Both units: "Decel On" should blink
+                digitalWrite(PIN_LED_DECEL,    !time.getLongBlink());
                 digitalWrite(PIN_LED_RECOVERY, LOW);
                 digitalWrite(PIN_LED_STABLE,   LOW);
                 break;
             case ExhibitState::RECOVERY:
                 digitalWrite(PIN_LED_DECEL,    LOW);
-                // #ifdef IS_CONTROL_UNIT
-                    //Blink the lamp in time with normal clock colons
-                    digitalWrite(PIN_LED_RECOVERY, !time.getBlink());
-                // #else
-                    // digitalWrite(PIN_LED_RECOVERY, HIGH);
-                // #endif
+                #ifdef ENABLE_SERIAL_TO_CHAMBER_UNIT
+                    //Control unit: "Recovery" should blink
+                    digitalWrite(PIN_LED_RECOVERY, !time.getLongBlink());
+                #else
+                    //Chamber unit: "Done" should be lit steadily
+                    digitalWrite(PIN_LED_RECOVERY, HIGH);
+                #endif
                 digitalWrite(PIN_LED_STABLE,   LOW);
                 break;
         }
@@ -301,7 +300,6 @@ public:
     
 private:
     void updateDigitalClock(int i, int32_t dec, bool colons) {
-        //TODO change colons to byte so you can have 1 or 2?
         //Sends update to TM1637 when display has changed
         if(digitalClockCurrent[i] != dec || (i<2 && digitalClockCurrentBlink[i] != colons)) {
             // if(i>1) {
@@ -318,7 +316,7 @@ private:
             #ifdef PIN_DIGITAL_NOR_CLK
                 digitalClocks[i]->showNumberDec(
                     digitalClockCurrent[i],
-                    ((i<2? 1-digitalClockCurrentBlink[i] : colons)? 0b01010000 : 0b00000000),
+                    ((i<2? 1-digitalClockCurrentBlink[i] : colons)? (i<2? 0b01010000: 0b00010000) : 0b00000000),
                     true, 6
                 );
             #endif
