@@ -22,6 +22,37 @@
 #define DIGITAL_SAV_BRIGHTNESS 0x0C
 #define DIGITAL_ELP_BRIGHTNESS 0x01
 
+/*
+Variable pins
+
+D   A   PWM (to drive motors and meters)
+            Int (for immediate button reading)
+                AR (for reading pots)
+                    Purpose [brackets=fixed]
+
+2       PWM Int     [Digital]
+3       PWM Int     [Digital]
+4                   [Digital]
+5       PWM         [Digital]
+6       PWM         [Digital]
+7                   [Digital]
+8                   [Digital]
+9       PWM Int     [Digital]
+10      PWM Int     /LED A/ - could add relay when decel, if not blinking
+11      PWM Int     /LED B/
+12      PWM         /LED C/
+
+13          Int     /Int btn/  PCF8574 can generate interrupt when inputs change, so 1 pin for 2 buttons
+14  0           AR  Pot
+15  1       Int AR  Pot
+16  2   PWM     AR  Pot
+17  3   PWM     AR  [Meter]
+18  4           AR  [I2C]
+19  5   PWM Int AR  [I2C]
+20  6           AR  /Relay when decel/
+21  7       Int AR  /Relay periodic in decel/ or /PrtSer/
+*/
+
 #define PIN_POT_MAX_NEG A0 //14
 #define PIN_POT_MAX_POS A1 //15
 #define PIN_POT_MIN_RATE A2 //16
@@ -55,10 +86,7 @@
 //the HV relay must be wired to pin 6
 //the LV relay must be wired to pin 7
 
-// #define ENABLE_RTC
-
-// RTC via I2C
-//#define RTC_ADDRESS
+#define ENABLE_RTC //I2C
 
 #define SERIAL_TIMEOUT 100        // milliseconds
 

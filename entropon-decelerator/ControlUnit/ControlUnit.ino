@@ -9,7 +9,7 @@
   #include <WiFiNINA.h>
 #endif
 
-#ifdef RTC_ENABLED
+#ifdef ENABLE_RTC
   #include <Wire.h>
   #include <RTClib.h>
 #endif
@@ -24,7 +24,7 @@ TimeValue chamberTime;
 ExhibitState state;
 DisplayManager display;
 
-#ifdef RTC_ENABLED
+#ifdef ENABLE_RTC
   RTC_DS3231 rtc;
 #endif
 
@@ -53,6 +53,12 @@ uint32_t lastLoopMillis = 0;
 void setup() {
   #ifdef ENABLE_SERIAL_LOGGING
     Serial.begin(115200);
+    delay(100);
+    Serial.print("Hello from control unit.");
+    #ifdef ENABLE_RTC
+      Serial.print("Enter 'r' to set RTC after display test completes.");
+    #endif
+    Serial.println();
   #endif
   #ifdef ENABLE_SERIAL_TO_CHAMBER_UNIT
     Serial1.begin(9600); //RX/TX serial to control unit
@@ -79,20 +85,17 @@ void setup() {
   //PIN_POT_MAX_POS
   //PIN_POT_MIN_RATE
 
-  #ifdef RTC_ENABLED
-    // Initialize RTC
-    if (!rtc.begin()) {
-        Serial.println(F("RTC not found!"));
-        while (1) delay(10);
-    }
-    // Sync time from RTC
-    syncTimeFromRTC();
-  #endif
-      
   // Test displays
   display.begin();
   display.testPattern(WiFi.status()==WL_CONNECTED? 2: 1);
 
+  #ifdef ENABLE_RTC
+    if(rtc.begin()) {
+      setRTC(); //See if we have input to set RTC by
+      syncTimeFromRTC(); //Update local time constructs from RTC
+    }
+  #endif
+      
   state.reset();
   lastLoopMillis = millis();
 }
@@ -159,7 +162,7 @@ void loop() {
   display.cycleAnalogClocks();
   
   // Re-sync with RTC at midnight
-  #ifdef RTC_ENABLED
+  #ifdef ENABLE_RTC
     if (state.current == ExhibitState::NORMAL && normalTime.getHHMMSS() < 2) {
           //TODO is there a more elegant way to catch this transition?
         syncTimeFromRTC();
@@ -293,6 +296,52 @@ void handleStateTransitions(char forceState) {
     }
 }
 
+void setRTC() {
+  #ifdef ENABLE_RTC
+    #ifdef ENABLE_SERIAL_LOGGING
+      //Check for serial console input to set RTC
+      if(Serial.available()) {
+        char incomingChar = Serial.read();
+        while(Serial.available()) Serial.read(); //dump the rest
+        if(incomingChar != 'r') {
+          Serial.print("Unknown command: ");
+          Serial.println(incomingChar);
+          return;
+        }
+      } else {
+        Serial.println("No command received.");
+        return;
+      }
+      //setting!
+      int hr = 0;
+      Serial.println("Setting RTC. Enter hour:");
+      while(1) {
+        if(Serial.available()) {
+          hr = Serial.parseInt()%24;
+          while(Serial.available()) Serial.read();
+          break;
+        }
+      }
+      int min = 0;
+      Serial.println("Enter minute, at top of minute:");
+      while(1) {
+        if(Serial.available()) {
+          min = Serial.parseInt()%60;
+          while(Serial.available()) Serial.read();
+          break;
+        }
+      }
+      rtc.adjust(DateTime(2025, 1, 1, hr, min, 0));
+    #endif
+  #endif
+}
+
+void syncTimeFromRTC() {
+  DateTime tod = rtc.now();
+  normalTime.setTime(tod.hour(),tod.minute(),tod.second());
+  chamberTime.setTime(tod.hour(),tod.minute(),tod.second());
+}
+
 void initNetwork(){
   //Skipping checking status of wifi module
   networkStartWiFi();
@@ -338,44 +387,73 @@ void printCertificate(){
   if (lc.connect(printServer, BOCA_IP_PORT)) {
     if (lc.connected()) {
       Serial.println(F("Printing now"));
-      lc.print(F("<RC10,20><LT2><HX895>"));
+      
 
-      lc.print(F("<F12><RC15,157><BS57,70>Entroponics<F9><RC25,785>TM"));
+      lc.print(F("<RC11,15><LT2><HX900><TTF1,24><RC13,52.5><CTR75>~E~<RC13,127.5><CTR75>~N~<RC13,202.5><CTR75>~T~<RC13,277.5><CTR75>~R~<RC13,352.5><CTR75>~O~<RC13,427.5><CTR75>~P~<RC13,502.5><CTR75>~O~<RC13,577.5><CTR75>~N~<RC13,652.5><CTR75>~I~<RC13,727.5><CTR75>~C~<RC13,802.5><CTR75>~S~<RC24,860><TTF1,7>TM<RC113,15><LT2><HX110><RC92,5><F11><CTR900>~Certificate of Completion~<RC113,805><LT2><HX110><RC140,15><TTF1,13><CTR900>~I spent "));
 
-      lc.print(F("<RC120,20><LT2><HX100><F11><RC95,0><CTR920>~Certificate of Completion~<RC120,815><LT2><HX100>"));
-
-      lc.print(F("<F3><RC150,95>I spent "));
       lc.print(secsSpent,DEC);
       lc.print(F(" second"));
       if(secsSpent!=1) lc.print(F("s"));
-
       lc.print(F(" to save "));
       lc.print(secsSaved,DEC);
       lc.print(F(" second"));
       if(secsSaved!=1) lc.print(F("s"));
 
-      lc.print(F("<F3><RC185,105>in the Entropon Deceleration Chamber<F9><RC185,825>TM"));
+      lc.print(F("~<RC178,15><TTF1,13><CTR900>~in the Entropon Decelerator~<TTF1,7><RC177,680>TM<RC223,15><TTF1,10><CTR900>~at the Holistic Quantum Activation Art Expo~<RC255,15><TTF1,10><CTR900>~Philadelphia, PA - November 14, 2025~<RC302,15><LT2><HX900><RC316,5><F11><CTR900>~"));
 
-      lc.print(F("<F9><RC228,0><CTR920>~at the Holistic Quantum Activation Art Expo~")); //<F2><RC227,740>TM
-
-      lc.print(F("<F9><RC255,0><CTR920>~Philadelphia, PA - November 14, 2025~"));
-
-      lc.print(F("<RC290,20><LT2><HX890><F11><RC305,0><CTR920>~"));
       unsigned long mils = millis();
-      switch(mils % 4) {
+      switch(mils % 5) {
         case 0: lc.print(F("Yesterday's Time...Today!")); break;
         case 1: lc.print(F("You're Not My Father, Time!")); break;
         case 2: lc.print(F("Retake Your Time!")); break;
         case 3: lc.print(F("It's Your Time to Unwind")); break;
+        case 4: lc.print(F("Your Moment is Now")); break;
         default: break;
       }
-      lc.print(F("~"));
 
-      lc.print(F("<RC370,20><LT2><HX270><F9><RC360,320><BS20,15>entroponics.com<RC370,637><LT2><HX270>"));
+      lc.print(F("~<RC379,15><LT2><HX350><RC360,15><TTF1,9><CTR900>~entroponics.com~<RC379,565><LT2><HX350><RC390,967><RL><TTF1,13><CTR390>~Proof of~<RC390,1005><RL><TTF1,13><CTR390>~Entroponic~<RC390,1043><RL><TTF1,13><CTR390>~Deceleration~<p>"));
 
-      lc.print(F("<RC390,980><RL><F3><CTR350>~Proof of~<RC390,1020><RL><F3><CTR350>~Entroponic~<RC390,1060><RL><F3><CTR350>~Deceleration~"));
 
-      lc.print(F("<p>"));
+      // lc.print(F("<RC10,20><LT2><HX895>"));
+
+      // lc.print(F("<F12><RC15,157><BS57,70>Entroponics<F9><RC25,785>TM"));
+
+      // lc.print(F("<RC120,20><LT2><HX100><F11><RC95,0><CTR920>~Certificate of Completion~<RC120,815><LT2><HX100>"));
+
+      // lc.print(F("<F3><RC150,95>I spent "));
+      // lc.print(secsSpent,DEC);
+      // lc.print(F(" second"));
+      // if(secsSpent!=1) lc.print(F("s"));
+
+      // lc.print(F(" to save "));
+      // lc.print(secsSaved,DEC);
+      // lc.print(F(" second"));
+      // if(secsSaved!=1) lc.print(F("s"));
+
+      // lc.print(F("<F3><RC185,105>in the Entropon Deceleration Chamber<F9><RC185,825>TM"));
+
+      // lc.print(F("<F9><RC228,0><CTR920>~at the Holistic Quantum Activation Art Expo~")); //<F2><RC227,740>TM
+
+      // lc.print(F("<F9><RC255,0><CTR920>~Philadelphia, PA - November 14, 2025~"));
+
+      // lc.print(F("<RC290,20><LT2><HX890><F11><RC305,0><CTR920>~"));
+      // unsigned long mils = millis();
+      // switch(mils % 4) {
+      //   case 0: lc.print(F("Yesterday's Time...Today!")); break;
+      //   case 1: lc.print(F("You're Not My Father, Time!")); break;
+      //   case 2: lc.print(F("Retake Your Time!")); break;
+      //   case 3: lc.print(F("It's Your Time to Unwind")); break;
+      //   default: break;
+      // }
+      // lc.print(F("~"));
+
+      // lc.print(F("<RC370,20><LT2><HX270><F9><RC360,320><BS20,15>entroponics.com<RC370,637><LT2><HX270>"));
+
+      // lc.print(F("<RC390,980><RL><F3><CTR350>~Proof of~<RC390,1020><RL><F3><CTR350>~Entroponic~<RC390,1060><RL><F3><CTR350>~Deceleration~"));
+
+      // lc.print(F("<p>"));
+
+
       lc.flush();
       lc.stop();
     }
