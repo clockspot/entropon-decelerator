@@ -3,7 +3,6 @@
 #include "config.h"
 
 #include "TimeTypes.h"
-#include "RTCMillis.h"
 #include "DisplayManager.h"
 
 #ifdef NETWORK_SSID
@@ -13,6 +12,7 @@
 #ifdef ENABLE_RTC
   #include <Wire.h>
   #include <RTClib.h>
+  #include "RTCMillis.h"
 #endif
 
 // #include <SoftwareSerial.h>
@@ -52,6 +52,11 @@ bool savedClockOdd = false;
 uint8_t lastNormalSecond = 255;
 uint8_t lastChamberSecond = 255;
 uint32_t lastSavedSeconds = 0;
+
+// Pots
+uint16_t potMaxDecel = 512;
+uint16_t potPower = 512;
+uint16_t potRecovery = 512;
 
 // Timing
 uint32_t lastLoopMillis = 0;
@@ -96,10 +101,7 @@ void setup() {
     #endif
   #endif
 
-  //The following may not need init
-  //PIN_POT_MAX_NEG
-  //PIN_POT_MAX_POS
-  //PIN_POT_MIN_RATE
+  //The pot pins do not need init for analogRead()
 
   // Test displays
   display.begin();
@@ -191,41 +193,28 @@ void btnStopPress() {
 void updateChamberRate() {
     if(state.current==ExhibitState::NORMAL) return;
 
-    // // Read potentiometers
-    // #ifdef PIN_POT_MAX_NEG
-    //   uint16_t potMaxNeg = analogRead(PIN_POT_MAX_NEG);
-    // #else
-      uint16_t potMaxNeg = 0; //512;
-    // #endif
+    //Read potentiometers
+    //How slow can we let chamber time go?
+    #ifdef PIN_POT_MAX_DECEL
+      potMaxDecel = analogRead(PIN_POT_MAX_DECEL);
+    #endif
 
-    // #ifdef PIN_POT_MAX_POS
-    //   uint16_t potMaxPos = analogRead(PIN_POT_MAX_POS);
-    // #else
-      uint16_t potMaxPos = 512;
-    // #endif
+    //How quickly do we get there?
+    #ifdef PIN_POT_POWER
+      potPower = analogRead(PIN_POT_POWER);
+    #endif
 
-    // #ifdef PIN_POT_MIN_RATE
-    //   uint16_t potMinRate = analogRead(PIN_POT_MIN_RATE);
-    // #else
-      uint16_t potMinRate = 1023; //512;
-    // #endif
+    //How quickly do we recover?
+    #ifdef PIN_POT_RECOVERY
+      potRecovery = analogRead(PIN_POT_RECOVERY);
+    #endif
 
 
-
-    // Minimum rate from pot (100-1000 ms per second)
-    uint16_t minRate = RATE_MIN; // + ((uint32_t)potMinRate * 1000-RATE_MIN) / 1023;
-
-    //The chamber rate will be somewhere between 1000 and RATE_MIN (likely 100) ms/sec.
-    //The change rate will be somewhere between POWER (eg 20) and 1 ms/sec/sec.
-
-    //Linear interpolation
-    uint8_t changeRate = 1 + (state.chamberRateMs - minRate) * (20 - 1) / (1000 - minRate);
-
-
+    // Minimum rate from max decel pot: 0 = 1000ms/sec (time is normal), 1023 = 0ms/sec (time stands still)
+    uint16_t minRate = (uint32_t)(1023-potMaxDecel) * 1000 / 1023;
     
-    // Deceleration/recovery duration from pots (2-20 seconds)
-    uint32_t decelDuration = 2000 + ((uint32_t)(1023 - potMaxNeg) * 180000) / 1023;
-    uint32_t recoveryDuration = 2000 + ((uint32_t)(1023 - potMaxPos) * 180000) / 1023;
+    // Deceleration duration - min 2 seconds, max 300 seconds
+    uint32_t decelDuration = 2000 + ((uint32_t)(1023 - potPower) * MAX_TIME-2000) / 1023;
     
     switch (state.current) {
       case ExhibitState::DECELERATION: {
@@ -241,18 +230,8 @@ void updateChamberRate() {
       }
       
       case ExhibitState::RECOVERY: {
-        state.chamberRateMs = 3000;
-          // if (state.elapsedMillis >= recoveryDuration) {
-          //     // Back to normal
-          //     state.chamberRateMs = 1000;
-          // } else {
-          //     state.chamberRateMs = 1500;
-          //     // // Linear interpolation from savedMinRate to 1000
-          //     // uint32_t progress = (state.elapsedMillis * 1000) / recoveryDuration;
-          //     // state.chamberRateMs = state.savedMinRate + 
-          //     //     ((1000 - state.savedMinRate) * progress) / 1000;
-          // }
-          // break;
+        //Go as fast as the analog clock will tick
+        state.chamberRateMs = map(potRecovery, 0, 1023, 0, 10000);
       }
     }
 }
@@ -293,7 +272,7 @@ void handleStateTransitions() {
               #ifdef PIN_STOP_BUTTON
                 || digitalRead(PIN_STOP_BUTTON) == PIN_STOP_BUTTON_PRESSED
               #endif
-              || state.chamberRateMs <= 110 // Within 10% of minimum //TODO that's not what I meant
+              || state.chamberRateMs <= 100 // Within 3% of minimum
             ) {  
                 printCertificate(); //needs state.elapsedMillis to not be zeroed yet
                 state.current = ExhibitState::RECOVERY;

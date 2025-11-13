@@ -64,12 +64,13 @@ PCF8574 can generate interrupt when inputs change, so 1 pin for 2 buttons
 #define PIN_LED_RECOVERY 20 //aka DONE in chamber
 #define PIN_LED_STABLE 21 //aka READY in chamber
 
-#define PIN_POT_DECEL A0 //14 //formerly PIN_POT_MAX_NEG
+#define PIN_POT_MAX_DECEL A0 //14 //formerly PIN_POT_MAX_NEG
 #define PIN_POT_POWER A1 //15 //formerly PIN_POT_MAX_POS
-#define PIN_POT_RECOVERY A2 //16 //formerly MIN_RATE
+#define PIN_POT_RECOVERY A2 //16 //formerly PIN_POT_MIN_RATE
 
 #define PIN_METER_PWM 17
-#define METER_MAX 180
+#define METER_MIN 8
+#define METER_MAX 158 //true max minus the min
 
 //I2C on 18/19
 
@@ -87,9 +88,7 @@ PCF8574 can generate interrupt when inputs change, so 1 pin for 2 buttons
 
 #define ENABLE_RTC //I2C
 
-#define SERIAL_TIMEOUT 100        // milliseconds
-
-#define RATE_MIN 0          // 100 ms per normal second = 90% slower
+#define MAX_TIME 300000
 
 // network and printer
 //only wpa supported (cf. other repos for wep support)

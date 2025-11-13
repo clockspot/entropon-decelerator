@@ -128,13 +128,13 @@ public:
         // Convert milliseconds per second to seconds lost per second
         // 1000 ms/s = 0 seconds lost
         // 500 ms/s = 0.5 seconds lost  
-        // 0 ms/s = 1 second lost
+        // 0 ms/s = 1 second lost - time standing still!
         
         uint8_t pwmValue;
         if (rateMs >= 1000) {
             pwmValue = 0;
         } else {
-            pwmValue = (METER_MAX * (1000 - rateMs)) / 1000;
+            pwmValue = METER_MIN + (METER_MAX * (1000 - rateMs)) / 1000;
         }
         
         analogWrite(PIN_METER_PWM, pwmValue);
@@ -247,15 +247,15 @@ public:
             for (int i = 0; i < 4; i++) digitalClocks[i]->showString("888888");
         #endif
         //TODO better way to make the needle move more gently
-        analogWrite(PIN_METER_PWM, (METER_MAX*1)/5);
+        analogWrite(PIN_METER_PWM, ((METER_MIN+METER_MAX)*1)/5);
         delay(200);
-        analogWrite(PIN_METER_PWM, (METER_MAX*2)/5);
+        analogWrite(PIN_METER_PWM, ((METER_MIN+METER_MAX)*2)/5);
         delay(200);
-        analogWrite(PIN_METER_PWM, (METER_MAX*3)/5);
+        analogWrite(PIN_METER_PWM, ((METER_MIN+METER_MAX)*3)/5);
         delay(200);
-        analogWrite(PIN_METER_PWM, (METER_MAX*4)/5);
+        analogWrite(PIN_METER_PWM, ((METER_MIN+METER_MAX)*4)/5);
         delay(200);
-        analogWrite(PIN_METER_PWM, METER_MAX);
+        analogWrite(PIN_METER_PWM, (METER_MIN+METER_MAX));
         
         #ifdef PIN_DIGITAL_NOR_CLK
             digitalClocks[0]->showString("nor");
@@ -267,13 +267,13 @@ public:
         
         // Clear everything
         //TODO better way to make the needle move more gently
-        analogWrite(PIN_METER_PWM, (METER_MAX*4)/5);
+        analogWrite(PIN_METER_PWM, ((METER_MIN+METER_MAX)*4)/5);
         delay(200);
-        analogWrite(PIN_METER_PWM, (METER_MAX*3)/5);
+        analogWrite(PIN_METER_PWM, ((METER_MIN+METER_MAX)*3)/5);
         delay(200);
-        analogWrite(PIN_METER_PWM, (METER_MAX*2)/5);
+        analogWrite(PIN_METER_PWM, ((METER_MIN+METER_MAX)*2)/5);
         delay(200);
-        analogWrite(PIN_METER_PWM, (METER_MAX*1)/5);
+        analogWrite(PIN_METER_PWM, ((METER_MIN+METER_MAX)*1)/5);
         delay(200);
         analogWrite(PIN_METER_PWM, 0);
         digitalWrite(PIN_LED_DECEL,    LOW);

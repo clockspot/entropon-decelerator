@@ -1,5 +1,7 @@
 #pragma once
 
+// cf. ControlUnit config
+
 #define ENABLE_SERIAL_LOGGING //Serial
 #define ENABLE_SERIAL_TO_CONTROL_UNIT //Serial1
 
@@ -24,29 +26,13 @@
 #define DIGITAL_SAV_BRIGHTNESS 0x0C
 #define DIGITAL_ELP_BRIGHTNESS 0x01
 
-//10/11/12 and 16 aka A2 are PWM (and other pins already in use)
-//#define PIN_VIBES_PWM
-// Effect parameters
-// #define VIBRATION_MIN_PWM 0
-// #define VIBRATION_MAX_PWM 200
+#define PIN_STOP_BUTTON_INT 10
 
-//LEDs can be 10/11/12 or 14/15/16 aka A0/A1/A2 depending what needs analog/PWM
-#define PIN_LED_STABLE 11 //aka READY in chamber
-#define PIN_LED_DECEL 12
-#define PIN_LED_RECOVERY 15 //aka DONE in chamber
+#define PIN_LED_DECEL 13
+#define PIN_LED_RECOVERY 20 //aka DONE in chamber
+#define PIN_LED_STABLE 21 //aka READY in chamber
 
 #define PIN_METER_PWM 17
-#define METER_MAX 222
+#define METER_MIN 0
+#define METER_MAX 217
 //going to attempt wiring motors to this via motor driver
-
-//I2C on 18/19 - n/a for chamber unit
-
-// #define PIN_START_BUTTON 20 //not supported on chamber yet
-// #define PIN_START_BUTTON_PRESSED LOW
-#define PIN_STOP_BUTTON 21
-#define PIN_STOP_BUTTON_PRESSED LOW
-
-// // LED strip parameters
-// #define NUM_LEDS 60
-
-#define SERIAL_TIMEOUT 100        // milliseconds

@@ -15,15 +15,15 @@
 TimeValue normalTime;
 TimeValue chamberTime;
 ExhibitState state;
-DisplayManager display; //TODO update per control unit
+DisplayManager display;
+
+//Used for capturing button presses from interrupts or serial
+volatile bool btnStartPressed = false;
+volatile bool btnStopPressed = false;
 
 // Adafruit_NeoPixel strip(NUM_LEDS, PIN_RGB_LED, NEO_GRB + NEO_KHZ800);
 
 SerialProtocol protocol(&Serial1);
-
-//Button arming
-//This can't be based on state, as it is in the control unit, since we must wait for the control unit to set our state
-bool stopButtonArmed = false;
 
 void setup() {
   #ifdef ENABLE_SERIAL_LOGGING
@@ -39,6 +39,19 @@ void setup() {
   #endif
   #ifdef PIN_STOP_BUTTON
     pinMode(PIN_STOP_BUTTON,INPUT_PULLUP);
+  #endif
+  #ifdef PIN_START_BUTTON_INT
+    pinMode(PIN_START_BUTTON_INT,INPUT_PULLUP);
+    attachInterrupt(digitalPinToInterrupt(PIN_START_BUTTON_INT), btnStartPress, FALLING);
+  #endif
+  #ifdef PIN_STOP_BUTTON_INT
+    pinMode(PIN_STOP_BUTTON_INT,INPUT_PULLUP);
+    attachInterrupt(digitalPinToInterrupt(PIN_STOP_BUTTON_INT), btnStopPress, FALLING);
+  #endif
+
+  #ifdef ENABLE_SERIAL_LOGGING
+    //Delay welcome messages to here, to give time for serial to become available
+    Serial.println(F("Hello from chamber unit."));
   #endif
 
   // Test displays
@@ -56,31 +69,14 @@ bool updateReceived = false;
 
 void loop() {
   #ifdef ENABLE_SERIAL_TO_CONTROL_UNIT
-    // Check for stop button when applicable
-    if(stopButtonArmed) {
-      if(digitalRead(PIN_STOP_BUTTON) == LOW) {
-        stopButtonArmed = false;
-        protocol.sendStop();
-      }
-    }
+
+    handleStateTransitions(); //button presses really, but working toward parity with control unit
 
     // Receive updates from control unit
     uint8_t msgType, payload[64];
     uint16_t payloadLength;
     if(protocol.receiveMessage(&msgType, payload, &payloadLength)) {
-      #ifdef ENABLE_SERIAL_LOGGING
-        Serial.print("Received from control: ");
-        switch(msgType) {
-          case SerialProtocol::MSG_STATE: Serial.print("MSG_STATE"); break;
-          case SerialProtocol::MSG_TIME:  Serial.print("MSG_TIME"); break;
-          case SerialProtocol::MSG_STOP:  Serial.print("MSG_STOP"); break;
-          case SerialProtocol::MSG_ACK:   Serial.print("MSG_ACK"); break;
-          case SerialProtocol::MSG_ERROR: Serial.print("MSG_ERROR"); break;
-          default: Serial.print("unknown"); break;
-        }
-        Serial.print(" of length ");
-        Serial.println(payloadLength);
-      #endif
+      //Debugging code removed after commit 6a5f104
       switch(msgType) {
         case SerialProtocol::MSG_STATE:
           memcpy(&state, payload, sizeof(ExhibitState));
@@ -108,14 +104,53 @@ void loop() {
       if(state.current == ExhibitState::DECELERATION) {
         display.updateSavedTime(normalTime,chamberTime);
         display.updateElapsedTime(state.elapsedMillis);
-        stopButtonArmed = true; //make it possible to stop
       }
       if(state.current == ExhibitState::NORMAL) { //unlike control unit, zero this display when it goes normal/ready
         display.updateSavedTime(normalTime,chamberTime);
         display.updateElapsedTime(0);
       }
     }
+
   #endif
+}
+
+//Handle button interrupts
+void btnStartPress() {
+  btnStartPressed = true;
+}
+void btnStopPress() {
+  btnStopPressed = true;
+}
+
+void handleStateTransitions() {
+  switch(state.current) {
+    case ExhibitState::NORMAL:
+      if ( btnStartPressed
+        #ifdef PIN_START_BUTTON
+          || digitalRead(PIN_START_BUTTON) == PIN_START_BUTTON_PRESSED
+        #endif
+      ) {
+        //Send to control unit - MSG_START not yet implemented
+      }
+      break;
+        
+    case ExhibitState::DECELERATION:
+      if ( btnStopPressed
+        #ifdef PIN_STOP_BUTTON
+          || digitalRead(PIN_STOP_BUTTON) == PIN_STOP_BUTTON_PRESSED
+        #endif
+      ) {  
+        protocol.sendStop();
+      }
+      break;
+        
+    case ExhibitState::RECOVERY: default:
+      break;
+  } //end switch
+
+  //Discard button presses, whether we acted on them or not (per current state)
+  btnStartPressed = false;
+  btnStopPressed = false;
 }
 
 void updateRGBEffects() {
