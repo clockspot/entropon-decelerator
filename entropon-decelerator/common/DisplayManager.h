@@ -159,6 +159,7 @@ public:
     }
     
     void updateLEDs(ExhibitState::State state, const TimeValue& time) {
+        //Formerly used time.getBlink() or time.getLongBlink() for some of these, but stopped bc 1) it doesn't look great with our dicey timing and 2) if steady, can do double duty as relay switch
         switch (state) {
             case ExhibitState::NORMAL: default:
                 digitalWrite(PIN_LED_DECEL,    LOW);
@@ -166,20 +167,13 @@ public:
                 digitalWrite(PIN_LED_STABLE,   HIGH);
                 break;
             case ExhibitState::DECELERATION:
-                //Both units: "Decel On" should blink
-                digitalWrite(PIN_LED_DECEL,    !time.getLongBlink());
+                digitalWrite(PIN_LED_DECEL,    HIGH);
                 digitalWrite(PIN_LED_RECOVERY, LOW);
                 digitalWrite(PIN_LED_STABLE,   LOW);
                 break;
             case ExhibitState::RECOVERY:
                 digitalWrite(PIN_LED_DECEL,    LOW);
-                #ifdef ENABLE_SERIAL_TO_CHAMBER_UNIT
-                    //Control unit: "Recovery" should blink
-                    digitalWrite(PIN_LED_RECOVERY, !time.getLongBlink());
-                #else
-                    //Chamber unit: "Done" should be lit steadily
-                    digitalWrite(PIN_LED_RECOVERY, HIGH);
-                #endif
+                digitalWrite(PIN_LED_RECOVERY, HIGH);
                 digitalWrite(PIN_LED_STABLE,   LOW);
                 break;
         }

@@ -25,6 +25,10 @@ TimeValue chamberTime;
 ExhibitState state;
 DisplayManager display;
 
+//Used for capturing button presses from interrupts or serial
+volatile bool btnStartPressed = false;
+volatile bool btnStopPressed = false;
+
 #ifdef ENABLE_RTC
   RTC_DS3231 rtc;
   RTCMillis* rtcMillis;
@@ -74,6 +78,14 @@ void setup() {
   #endif
   #ifdef PIN_STOP_BUTTON
     pinMode(PIN_STOP_BUTTON,INPUT_PULLUP);
+  #endif
+  #ifdef PIN_START_BUTTON_INT
+    pinMode(PIN_START_BUTTON_INT,INPUT_PULLUP);
+    attachInterrupt(digitalPinToInterrupt(PIN_START_BUTTON_INT), btnStartPress, FALLING);
+  #endif
+  #ifdef PIN_STOP_BUTTON_INT
+    pinMode(PIN_STOP_BUTTON_INT,INPUT_PULLUP);
+    attachInterrupt(digitalPinToInterrupt(PIN_STOP_BUTTON_INT), btnStopPress, FALLING);
   #endif
 
   #ifdef ENABLE_SERIAL_LOGGING
@@ -132,31 +144,18 @@ void loop() {
   chamberTime.addMillis(chamberDelta);
 
   // State machine
-  char forceState = 0;
   // Look for state signal from chamber unit
   #ifdef ENABLE_SERIAL_TO_CHAMBER_UNIT
     uint8_t msgType, payload[64];
     uint16_t payloadLength;
     if (protocol.receiveMessage(&msgType, payload, &payloadLength)) {
-      #ifdef ENABLE_SERIAL_LOGGING
-        Serial.print("Received from chamber: ");
-        switch(msgType) {
-          case SerialProtocol::MSG_STATE: Serial.print("MSG_STATE"); break;
-          case SerialProtocol::MSG_TIME:  Serial.print("MSG_TIME"); break;
-          case SerialProtocol::MSG_STOP:  Serial.print("MSG_STOP"); break;
-          case SerialProtocol::MSG_ACK:   Serial.print("MSG_ACK"); break;
-          case SerialProtocol::MSG_ERROR: Serial.print("MSG_ERROR"); break;
-          default: Serial.print("unknown"); break;
-        }
-        Serial.print(" of length ");
-        Serial.println(payloadLength);
-      #endif
+      //Debugging code removed after commit f60e5de
       if (msgType == SerialProtocol::MSG_STOP) {
-        forceState = 2;
+        btnStopPressed = true; //as though a button interrupt was received
       }
     }
   #endif
-  handleStateTransitions(forceState);
+  handleStateTransitions();
   
   // Send display data to chamber unit, so it can be updating displays at the same time as control unit
   #ifdef ENABLE_SERIAL_TO_CHAMBER_UNIT
@@ -176,15 +175,17 @@ void loop() {
   }
   display.cycleAnalogClocks();
   
-  // Re-sync with RTC at midnight
-  #ifdef ENABLE_RTC
-    if (state.current == ExhibitState::NORMAL && normalTime.getHHMMSS() < 2) {
-          //TODO is there a more elegant way to catch this transition?
-        syncTimeFromRTC();
-    }
-  #endif
+  // Re-sync with RTC at midnight - removed after commit f60e5de as it now happens continuously
   
   lastLoopMillis = currentMillis;
+}
+
+//Handle button interrupts
+void btnStartPress() {
+  btnStartPressed = true;
+}
+void btnStopPress() {
+  btnStopPressed = true;
 }
 
 void updateChamberRate() {
@@ -256,14 +257,16 @@ void updateChamberRate() {
     }
 }
 
-void handleStateTransitions(char forceState) {
+void handleStateTransitions() {
     static uint32_t decelStartTime = 0;
     static uint32_t recoverStartTime = 0;
     
     switch (state.current) {
         case ExhibitState::NORMAL:
-            if (digitalRead(PIN_START_BUTTON) == PIN_START_BUTTON_PRESSED
-              || forceState==1
+            if ( btnStartPressed
+              #ifdef PIN_START_BUTTON
+                || digitalRead(PIN_START_BUTTON) == PIN_START_BUTTON_PRESSED
+              #endif
             ) {
                 state.current = ExhibitState::DECELERATION;
                 #ifdef ENABLE_SERIAL_LOGGING
@@ -286,10 +289,12 @@ void handleStateTransitions(char forceState) {
               state.elapsedMillis = millis() - decelStartTime;
             #endif
             
-            if (digitalRead(PIN_STOP_BUTTON) == PIN_STOP_BUTTON_PRESSED
-              || state.chamberRateMs <= 110 || forceState==2
-            ) {  // Within 10% of minimum
-              //TODO that's not what I meant
+            if ( btnStopPressed
+              #ifdef PIN_STOP_BUTTON
+                || digitalRead(PIN_STOP_BUTTON) == PIN_STOP_BUTTON_PRESSED
+              #endif
+              || state.chamberRateMs <= 110 // Within 10% of minimum //TODO that's not what I meant
+            ) {  
                 printCertificate(); //needs state.elapsedMillis to not be zeroed yet
                 state.current = ExhibitState::RECOVERY;
                 #ifdef ENABLE_SERIAL_LOGGING
@@ -324,7 +329,11 @@ void handleStateTransitions(char forceState) {
                 chamberTime = normalTime;
             }
             break;
-    }
+    } //end switch
+
+    //Discard button presses, whether we acted on them or not (per current state)
+    btnStartPressed = false;
+    btnStopPressed = false;
 }
 
 void setRTC() {

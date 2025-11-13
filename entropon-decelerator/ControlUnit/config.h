@@ -38,44 +38,46 @@ D   A   PWM (to drive motors and meters)
 7                   [Digital]
 8                   [Digital]
 9       PWM Int     [Digital]
-10      PWM Int     /LED A/ - could add relay when decel, if not blinking
-11      PWM Int     /LED B/
-12      PWM         /LED C/
+10      PWM Int     /Btn Start INT/
+11      PWM Int     /Btn Stop INT/
+12      PWM         (Free - funky relay, printer TX?)
 
-13          Int     /Int btn/  PCF8574 can generate interrupt when inputs change, so 1 pin for 2 buttons
+13          Int     /LED Decel On - also onboard LED/
 14  0           AR  Pot
 15  1       Int AR  Pot
 16  2   PWM     AR  Pot
 17  3   PWM     AR  [Meter]
 18  4           AR  [I2C]
 19  5   PWM Int AR  [I2C]
-20  6           AR  /Relay when decel/
-21  7       Int AR  /Relay periodic in decel/ or /PrtSer/
+20  6           AR  /LED Recovery/Done/
+21  7       Int AR  /LED Stable/Ready/
+
+PCF8574 can generate interrupt when inputs change, so 1 pin for 2 buttons
 */
 
-#define PIN_POT_MAX_NEG A0 //14
-#define PIN_POT_MAX_POS A1 //15
-#define PIN_POT_MIN_RATE A2 //16
+#define PIN_STOP_BUTTON_INT 10
+#define PIN_START_BUTTON_INT 11
 
-//If implemented in lieu of wifi connection
-// #define PIN_PRINTER_TX 13
+// #define PIN_RELAY_DECEL 12
 
-#define PIN_RELAY_DECEL 13
+#define PIN_LED_DECEL 13
+#define PIN_LED_RECOVERY 20 //aka DONE in chamber
+#define PIN_LED_STABLE 21 //aka READY in chamber
 
-//LEDs can be 10/11/12 or 14/15/16 aka A0/A1/A2 depending what needs analog/PWM
-#define PIN_LED_STABLE 10 //aka READY in chamber
-#define PIN_LED_RECOVERY 11 //aka DONE in chamber
-#define PIN_LED_DECEL 12
+#define PIN_POT_DECEL A0 //14 //formerly PIN_POT_MAX_NEG
+#define PIN_POT_POWER A1 //15 //formerly PIN_POT_MAX_POS
+#define PIN_POT_RECOVERY A2 //16 //formerly MIN_RATE
 
 #define PIN_METER_PWM 17
 #define METER_MAX 180
 
 //I2C on 18/19
 
-#define PIN_START_BUTTON 20
-#define PIN_START_BUTTON_PRESSED LOW
-#define PIN_STOP_BUTTON 21
-#define PIN_STOP_BUTTON_PRESSED LOW
+//non-interrupt-driven button pins
+// #define PIN_START_BUTTON 20
+// #define PIN_START_BUTTON_PRESSED LOW
+// #define PIN_STOP_BUTTON 21
+// #define PIN_STOP_BUTTON_PRESSED LOW
 
 // Analog clock and relay pins via PCF8574 I2C expander
 #define EXPANDER_ADDRESS 0x20
