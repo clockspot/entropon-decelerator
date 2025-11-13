@@ -68,6 +68,12 @@ struct TimeValue {
                              (uint32_t)seconds * MILLIS_PER_SECOND;
         normalize();
     }
+
+    //Set time from milliseconds since midnight (per RTCMillis)
+    void setTimeMSM(uint32_t msm) {
+        millisSinceMidnight = msm;
+        normalize();
+    }
 };
 
 struct ExhibitState {

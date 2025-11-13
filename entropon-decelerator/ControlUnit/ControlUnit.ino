@@ -3,6 +3,7 @@
 #include "config.h"
 
 #include "TimeTypes.h"
+#include "RTCMillis.h"
 #include "DisplayManager.h"
 
 #ifdef NETWORK_SSID
@@ -26,6 +27,7 @@ DisplayManager display;
 
 #ifdef ENABLE_RTC
   RTC_DS3231 rtc;
+  RTCMillis* rtcMillis;
 #endif
 
 #ifdef NETWORK_SSID
@@ -53,12 +55,6 @@ uint32_t lastLoopMillis = 0;
 void setup() {
   #ifdef ENABLE_SERIAL_LOGGING
     Serial.begin(115200);
-    delay(100);
-    Serial.print("Hello from control unit.");
-    #ifdef ENABLE_RTC
-      Serial.print("Enter 'r' to set RTC after display test completes.");
-    #endif
-    Serial.println();
   #endif
   #ifdef ENABLE_SERIAL_TO_CHAMBER_UNIT
     Serial1.begin(9600); //RX/TX serial to control unit
@@ -80,6 +76,14 @@ void setup() {
     pinMode(PIN_STOP_BUTTON,INPUT_PULLUP);
   #endif
 
+  #ifdef ENABLE_SERIAL_LOGGING
+    //Delay welcome messages to here, to give time for serial to become available
+    Serial.println(F("Hello from control unit."));
+    #ifdef ENABLE_RTC
+      Serial.println(F("Enter 'r' to set RTC after display test completes."));
+    #endif
+  #endif
+
   //The following may not need init
   //PIN_POT_MAX_NEG
   //PIN_POT_MAX_POS
@@ -90,19 +94,30 @@ void setup() {
   display.testPattern(WiFi.status()==WL_CONNECTED? 2: 1);
 
   #ifdef ENABLE_RTC
-    if(rtc.begin()) {
-      setRTC(); //See if we have input to set RTC by
-      syncTimeFromRTC(); //Update local time constructs from RTC
+    if(!rtc.begin()) {
+      Serial.println(F("RTC not found!"));
+      //TODO update DisplayManager displayDiagnostics to accept a string to show this?
+      while (1);
     }
+    setRTC(); //See if we have input to set RTC by
+    rtcMillis = new RTCMillis(&rtc);
+    syncTimeFromRTC(); //Update local time constructs from RTC
+    lastLoopMillis = rtcMillis->msm();
+  #else
+    lastLoopMillis = millis();
   #endif
       
   state.reset();
-  lastLoopMillis = millis();
 }
 
 void loop() {
 
-  uint32_t currentMillis = millis();
+  #ifdef ENABLE_RTC
+    uint32_t currentMillis = rtcMillis->msm();
+  #else
+    uint32_t currentMillis = millis();
+  #endif
+
   uint32_t deltaMillis = currentMillis - lastLoopMillis;
   
   // Update times
@@ -256,12 +271,20 @@ void handleStateTransitions(char forceState) {
                 #endif
                 state.elapsedMillis = 0;
                 state.chamberRateMs = 500;
-                decelStartTime = millis();
+                #ifdef ENABLE_RTC
+                  decelStartTime = rtcMillis->msm();
+                #else
+                  decelStartTime = millis();
+                #endif
             }
             break;
             
         case ExhibitState::DECELERATION:
-            state.elapsedMillis = millis() - decelStartTime;
+            #ifdef ENABLE_RTC
+              state.elapsedMillis = rtcMillis->msm() - decelStartTime;
+            #else
+              state.elapsedMillis = millis() - decelStartTime;
+            #endif
             
             if (digitalRead(PIN_STOP_BUTTON) == PIN_STOP_BUTTON_PRESSED
               || state.chamberRateMs <= 110 || forceState==2
@@ -274,12 +297,20 @@ void handleStateTransitions(char forceState) {
                 #endif
                 state.elapsedMillis = 0;
                 state.chamberRateMs = 2400;
-                recoverStartTime = millis();
+                #ifdef ENABLE_RTC
+                  recoverStartTime = rtcMillis->msm();
+                #else
+                  recoverStartTime = millis();
+                #endif
             }
             break;
             
         case ExhibitState::RECOVERY:
-            state.elapsedMillis = millis() - recoverStartTime;
+            #ifdef ENABLE_RTC
+              state.elapsedMillis = rtcMillis->msm() - recoverStartTime;
+            #else
+              state.elapsedMillis = millis() - recoverStartTime;
+            #endif
             
             if (normalTime.getDifferenceMillis(chamberTime)<0) {
             // if (state.chamberRateMs >= 1000-(1000/100)) { //within 1% of 1000
@@ -337,9 +368,15 @@ void setRTC() {
 }
 
 void syncTimeFromRTC() {
-  DateTime tod = rtc.now();
-  normalTime.setTime(tod.hour(),tod.minute(),tod.second());
-  chamberTime.setTime(tod.hour(),tod.minute(),tod.second());
+  #ifdef ENABLE_RTC
+    DateTime tod = rtc.now();
+    normalTime.setTime(tod.hour(),tod.minute(),tod.second());
+    chamberTime.setTime(tod.hour(),tod.minute(),tod.second());
+    //TODO compare time to new time, so you know to advance analog clocks
+    // uint32_t msm = rtcMillis->msm();
+    // normalTime.setTimeMSM(msm);
+    // chamberTime.setTimeMSM(msm);
+  #endif
 }
 
 void initNetwork(){
@@ -349,17 +386,16 @@ void initNetwork(){
 
 void networkStartWiFi(){
   #ifdef NETWORK_SSID
-  Serial.print(F(" Attempting to connect to SSID: ")); Serial.println(NETWORK_SSID);
+  Serial.print(F("Attempting to connect to SSID: ")); Serial.println(NETWORK_SSID);
 
-  // WiFi.begin(NETWORK_SSID.c_str(), NETWORK_PASS.c_str()); //WPA - hangs while connecting
   WiFi.begin(NETWORK_SSID, NETWORK_PASS); //WPA - hangs while connecting
   if(WiFi.status()==WL_CONNECTED){ //did it work?
   
-    Serial.print(millis()); Serial.println(F(" Connected!"));
+    Serial.println(F("Connected!"));
     Serial.print(F("SSID: ")); Serial.println(WiFi.SSID());
     Serial.print(F("Signal strength (RSSI):")); Serial.print(WiFi.RSSI()); Serial.println(F(" dBm"));
   }
-  else Serial.println(F(" Wasn't able to connect."));
+  else Serial.println(F("Wasn't able to connect."));
   #endif
 } //end fn startWiFi
 
@@ -387,7 +423,7 @@ void printCertificate(){
   if (lc.connect(printServer, BOCA_IP_PORT)) {
     if (lc.connected()) {
       Serial.println(F("Printing now"));
-      
+
 
       lc.print(F("<RC11,15><LT2><HX900><TTF1,24><RC13,52.5><CTR75>~E~<RC13,127.5><CTR75>~N~<RC13,202.5><CTR75>~T~<RC13,277.5><CTR75>~R~<RC13,352.5><CTR75>~O~<RC13,427.5><CTR75>~P~<RC13,502.5><CTR75>~O~<RC13,577.5><CTR75>~N~<RC13,652.5><CTR75>~I~<RC13,727.5><CTR75>~C~<RC13,802.5><CTR75>~S~<RC24,860><TTF1,7>TM<RC113,15><LT2><HX110><RC92,5><F11><CTR900>~Certificate of Completion~<RC113,805><LT2><HX110><RC140,15><TTF1,13><CTR900>~I spent "));
 
@@ -401,7 +437,7 @@ void printCertificate(){
 
       lc.print(F("~<RC178,15><TTF1,13><CTR900>~in the Entropon Decelerator~<TTF1,7><RC177,680>TM<RC223,15><TTF1,10><CTR900>~at the Holistic Quantum Activation Art Expo~<RC255,15><TTF1,10><CTR900>~Philadelphia, PA - November 14, 2025~<RC302,15><LT2><HX900><RC316,5><F11><CTR900>~"));
 
-      unsigned long mils = millis();
+      unsigned long mils = millis(); //as a source of randomness, this is fine
       switch(mils % 5) {
         case 0: lc.print(F("Yesterday's Time...Today!")); break;
         case 1: lc.print(F("You're Not My Father, Time!")); break;
