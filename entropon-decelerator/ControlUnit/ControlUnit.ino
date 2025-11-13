@@ -395,23 +395,32 @@ void initNetwork(){
 
 void networkStartWiFi(){
   #ifdef NETWORK_SSID
-  Serial.print(F("Attempting to connect to SSID: ")); Serial.println(NETWORK_SSID);
+    #ifdef ENABLE_SERIAL_LOGGING
+      Serial.print(F("Attempting to connect to SSID: ")); Serial.println(NETWORK_SSID);
+    #endif
 
-  WiFi.begin(NETWORK_SSID, NETWORK_PASS); //WPA - hangs while connecting
-  if(WiFi.status()==WL_CONNECTED){ //did it work?
-  
-    Serial.println(F("Connected!"));
-    Serial.print(F("SSID: ")); Serial.println(WiFi.SSID());
-    Serial.print(F("Signal strength (RSSI):")); Serial.print(WiFi.RSSI()); Serial.println(F(" dBm"));
-  }
-  else Serial.println(F("Wasn't able to connect."));
+    WiFi.begin(NETWORK_SSID, NETWORK_PASS); //WPA - hangs while connecting
+    if(WiFi.status()==WL_CONNECTED){ //did it work?
+      #ifdef ENABLE_SERIAL_LOGGING
+        Serial.println(F("Connected!"));
+        Serial.print(F("SSID: ")); Serial.println(WiFi.SSID());
+        Serial.print(F("Signal strength (RSSI):")); Serial.print(WiFi.RSSI()); Serial.println(F(" dBm"));
+      #endif
+    }
+    else {
+      #ifdef ENABLE_SERIAL_LOGGING
+        Serial.println(F("Wasn't able to connect."));
+      #endif
+    }
   #endif
 } //end fn startWiFi
 
 void networkDisconnectWiFi(){
   #ifdef NETWORK_SSID
-  Serial.println(F("Disconnecting WiFi"));
-  WiFi.end();
+    #ifdef ENABLE_SERIAL_LOGGING
+      Serial.println(F("Disconnecting WiFi"));
+    #endif
+    WiFi.end();
   #endif
 }
 
@@ -421,17 +430,30 @@ void printCertificate(){
   uint32_t secsSaved = timeDiff / 1000;
   uint32_t secsSpent = state.elapsedMillis / 1000;
 
-  Serial.print(F("Printing "));
-  Serial.print(secsSpent,DEC);
-  Serial.print(F("/"));
-  Serial.print(secsSaved,DEC);
-  Serial.println();
+  #ifdef ENABLE_SERIAL_LOGGING
+    Serial.print(F("Printing certificate for "));
+    Serial.print(secsSpent,DEC);
+    Serial.print(F("sec spent, "));
+    Serial.print(secsSaved,DEC);
+    Serial.println(F("sec saved"));
+  #endif
+  
   #ifdef NETWORK_TRY_PRINT
+  if(WiFi.status()!=WL_CONNECTED) {
+    #ifdef ENABLE_SERIAL_LOGGING
+      Serial.println(F("Not connected to WiFi; print attempt aborted"));
+    #endif
+    return;
+  }
+  
   //https://stackoverflow.com/a/74554673
   delay(50);
   if (lc.connect(printServer, BOCA_IP_PORT)) {
     if (lc.connected()) {
-      Serial.println(F("Printing now"));
+      #ifdef ENABLE_SERIAL_LOGGING
+        Serial.println(F("Printing now"));
+      #endif
+      
 
 
       lc.print(F("<RC11,15><LT2><HX900><TTF1,24><RC13,52.5><CTR75>~E~<RC13,127.5><CTR75>~N~<RC13,202.5><CTR75>~T~<RC13,277.5><CTR75>~R~<RC13,352.5><CTR75>~O~<RC13,427.5><CTR75>~P~<RC13,502.5><CTR75>~O~<RC13,577.5><CTR75>~N~<RC13,652.5><CTR75>~I~<RC13,727.5><CTR75>~C~<RC13,802.5><CTR75>~S~<RC24,860><TTF1,7>TM<RC113,15><LT2><HX110><RC92,5><F11><CTR900>~Certificate of Completion~<RC113,805><LT2><HX110><RC140,15><TTF1,13><CTR900>~I spent "));
@@ -501,12 +523,24 @@ void printCertificate(){
 
       lc.flush();
       lc.stop();
+    } else {
+      #ifdef ENABLE_SERIAL_LOGGING
+        Serial.println(F("Could not connect to printer"));
+      #endif
     }
     // while (!lc.available());                // wait for response
     // String str = lc.readStringUntil('\n');  // read entire response
     // Serial.print("[Rx] ");
     // Serial.println(str);
     // lc.disconnect(); //whaaaaa
+  } else {
+    #ifdef ENABLE_SERIAL_LOGGING
+      Serial.println(F("Could not create connection to printer"));
+    #endif
   }
+  #else
+    #ifdef ENABLE_SERIAL_LOGGING
+      Serial.println(F("Not configured to print; print attempt aborted"));
+    #endif
   #endif
 }
