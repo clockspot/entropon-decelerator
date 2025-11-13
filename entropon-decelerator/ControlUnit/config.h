@@ -58,10 +58,9 @@ D   A   PWM (to drive motors and meters)
 #define PIN_POT_MIN_RATE A2 //16
 
 //If implemented in lieu of wifi connection
-// #define PIN_PRINTER_TX 13  //implies SoftwareSerial, but that may not work on SAMD?
+// #define PIN_PRINTER_TX 13
 
-//If implemented instead of above
-#define PIN_ALT_RELAY 13
+#define PIN_RELAY_DECEL 13
 
 //LEDs can be 10/11/12 or 14/15/16 aka A0/A1/A2 depending what needs analog/PWM
 #define PIN_LED_STABLE 10 //aka READY in chamber
@@ -83,8 +82,6 @@ D   A   PWM (to drive motors and meters)
 //the NOR, CHM, SAV analog clocks must be wired to pins 0-5
 #define ANALOG_PULSE_WIDTH 35
 #define ANALOG_MAX_TICK_RATE 200
-//the HV relay must be wired to pin 6
-//the LV relay must be wired to pin 7
 
 #define ENABLE_RTC //I2C
 

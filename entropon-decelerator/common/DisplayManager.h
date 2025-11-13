@@ -8,7 +8,7 @@
 #include <Arduino.h>
 #ifdef EXPANDER_ADDRESS //only control unit has this
   #include <Wire.h>
-  #include <PCF8574.h> // Pin expander for analog clocks and relays
+  #include <PCF8574.h> // Pin expander for analog clocks
 #endif
 #ifdef PIN_DIGITAL_NOR_CLK
     #include <TM1637TinyDisplay6.h>  // For digital clocks
@@ -66,14 +66,14 @@ public:
         #endif
 
         #ifdef EXPANDER_ADDRESS
-            //Initialize analog clock and relay pins via expander
+            //Initialize expander for analog clocks
             Wire.begin();
             expander->begin();
             expander->selectNone(); //set all pins low
         #endif
 
-        #ifdef PIN_ALT_RELAY
-            pinMode(PIN_ALT_RELAY,    OUTPUT); digitalWrite(PIN_ALT_RELAY,    LOW);
+        #ifdef PIN_RELAY_DECEL
+            pinMode(PIN_RELAY_DECEL,    OUTPUT); digitalWrite(PIN_RELAY_DECEL,    LOW);
         #endif
         
         // Set up LED pins
@@ -188,23 +188,15 @@ public:
     void updateRelays(ExhibitState::State state) {
         switch (state) {
             case ExhibitState::DECELERATION:
-                #ifdef EXPANDER_ADDRESS //TODO also EXPANDER_RELAYS in case expander is used for buttons instead
-                    expander->write(6, HIGH);
-                    expander->write(7, HIGH);
-                #endif
-                #ifdef PIN_ALT_RELAY
-                    digitalWrite(PIN_ALT_RELAY, HIGH);
+                #ifdef PIN_RELAY_DECEL
+                    digitalWrite(PIN_RELAY_DECEL, HIGH);
                 #endif
                 break;
             case ExhibitState::NORMAL:
             case ExhibitState::RECOVERY:
             default:
-                #ifdef EXPANDER_ADDRESS
-                    expander->write(6, LOW);
-                    expander->write(7, LOW);
-                #endif
-                #ifdef PIN_ALT_RELAY
-                    digitalWrite(PIN_ALT_RELAY, LOW);
+                #ifdef PIN_RELAY_DECEL
+                    digitalWrite(PIN_RELAY_DECEL, LOW);
                 #endif
                 break;
         }
@@ -218,7 +210,7 @@ public:
         unsigned long startMils = 0;
         unsigned long diffMils = 0;
         bool analogClockPinState[6];
-        for(int i=0; i<5; i++) analogClockPinState[i]=0;
+        for(int i=0; i<6; i++) analogClockPinState[i]=0;
         //Check if a tick is needed
         for(int i=0; i<3; i++) {
             if(analogClockCurrent[i] != analogClockTarget[i]) {
@@ -236,7 +228,7 @@ public:
                 expander->write(i, HIGH);
             }
         }
-        delay(ANALOG_PULSE_WIDTH); //The only place this is acceptable since the timing of the pulse is so crucial, it can't be left to loop polling
+        delay(ANALOG_PULSE_WIDTH); //The only place this is acceptable since the timing of the pulse is so crucial, it can't be left to loop polling - it's preferable for the other code to hang, with implications for button polling (TODO need to implement as interrupts) and display refresh rate (which for the TM1637s is slow anyway)
         //Switch pins off
         for(int i=0; i<6; i++) {
             if(analogClockPinState[i]) {

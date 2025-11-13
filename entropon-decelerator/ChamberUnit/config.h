@@ -30,9 +30,6 @@
 // #define VIBRATION_MIN_PWM 0
 // #define VIBRATION_MAX_PWM 200
 
-//If implemented instead of above
-#define PIN_ALT_RELAY 13
-
 //LEDs can be 10/11/12 or 14/15/16 aka A0/A1/A2 depending what needs analog/PWM
 #define PIN_LED_STABLE 11 //aka READY in chamber
 #define PIN_LED_DECEL 12
@@ -40,6 +37,7 @@
 
 #define PIN_METER_PWM 17
 #define METER_MAX 222
+//going to attempt wiring motors to this via motor driver
 
 //I2C on 18/19 - n/a for chamber unit
 
