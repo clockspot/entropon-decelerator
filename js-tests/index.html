@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<!-- A quick way to try some procedural value changes -->
+<html>
+  <head>
+    <style>
+      body { background-color: #222; color: white; font-family: monospace; font-size: 16px; }
+      th, td { padding: 0.1em 0.3em; text-align: right; }
+    </style>
+  </head>
+  <body>
+    <table id="output">
+      <tr>
+        <th>i</th>
+        <th>dif</th>
+        <th>val</th>
+      </tr>
+    </table>
+    <script type="text/javascript">
+      let val = 0;
+      let dif = 0;
+      let rate = 20;
+      let max = 1000;
+      const out = document.getElementById("output");
+      for(i=0; i<=20; i++) {
+        if(i>0) {
+          //Here is the magic
+          dif = (rate<Math.floor(max/2)? Math.floor((rate*rate/(max/2))/rate): rate);
+          val += dif;
+          if(val>max) val=max;
+        }
+        //Here is the printout
+        const row = out.insertRow();
+        const cell_i = row.insertCell(); cell_i.textContent = i;
+        const cell_dif = row.insertCell(); cell_dif.textContent = dif;
+        const cell_val = row.insertCell(); cell_val.textContent = val;
+        if(val==max) { cell_i.textContent += '.'; break; }
+      }
+    </script>
+  </body>
+</html>

@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<!-- A quick way to try some procedural value changes -->
+<html>
+  <head>
+    <style>
+      body { background-color: #222; color: white; font-family: monospace; font-size: 16px; }
+      th, td { padding: 0.1em 0.3em; text-align: right; }
+      #output { font-size: 2.5em; margin: 1em auto; border: 2px solid white; padding: 0.5em; width: 4em; text-align: right; }
+      p { text-align: center; }
+      form { margin: 1em auto; text-align: center; }
+      #scale { position: relative; margin: 1em auto; width: 1002px; border-top: 2px solid white; }
+      #needle { position: absolute; padding: 0 0 0 0.5em; border-left: 2px solid red; }
+      a { color: white; }
+    </style>
+  </head>
+  <body>
+    <p>
+      <a href="#" onClick="turnOff()">Off</a> <a href="#" onClick="turnOn()">On</a> 
+      r=<span id="r">-</span>
+    </p>
+    <div id="scale">
+      <div id="needle">0</div>
+    </div>
+    <!-- <div id="output">0</div> -->
+    <script type="text/javascript">
+      const min = 0;
+      const max = 100000;
+
+      const riserate = 5000; //per second
+      const fallrate = 15000; //per second
+      const riseratemin = 1;
+      const fallratemin = 20;
+      const riselo = 3000;
+      const risehi = 20000;
+      const falllo = 12000;
+      const fallhi = 90000;
+
+      let val = 0;
+      let target = 0;
+      let curlo = 0;
+      let curhi = 0;
+      let curmax = 0;
+      let currate = 0;
+      let curratemin = 0;
+
+      let last = 0;
+
+      function turnOn() {
+        console.log("On");
+        target = max;
+        curmax = max;
+        curlo = riselo;
+        curhi = risehi;
+        currate = riserate;
+        curratemin = riseratemin;
+        last = Date.now();
+      }
+      function turnOff() {
+        console.log("Off");
+        target = min;
+        curmax = val;
+        curhi = fallhi*max/curmax; //I don't think this works
+        curlo = (falllo<curhi? falllo: curhi);
+        currate = fallrate;
+        curratemin = fallratemin;
+        last = Date.now();
+      }
+
+      const rr = document.getElementById('r');
+      setInterval(function() {
+        if(val!=target) {
+          //Calculate effective rate based on cycle length...
+          let r1 = Math.floor(
+                  (
+                    currate
+                    *(Date.now()-last)
+                  )/1000 //rate is per this period
+                );
+          //...and where we are overall
+          let r = r1;
+          if(val<curlo) //Scale up to / down from lo
+              r = Math.floor(
+                  (
+                    r1*val
+                  )/curlo
+                );
+          if(val>curhi) //Scale up from / down to hi
+              //((1000-300)-(650-300))/(1000-300)
+              r = Math.floor(
+                  (
+                    r1*((curmax-curhi)-(val-curhi))
+                  )/(curmax-curhi)
+                );
+          rr.textContent = parseInt(r1)+":"+parseInt(r);
+
+          if(val<target) {
+            if(target-val < r+curratemin) val=target;
+            else val += r+curratemin;
+            updateNeedle(val);
+          }
+          if(val>target) {
+            if(val-target < r+curratemin) val=target;
+            else val -= r+curratemin;
+            updateNeedle(val);
+          }
+          last = Date.now();
+        }
+      },20);
+      // function updateTarget(event) {
+      //   event.preventDefault();
+      //   target = parseInt(inp.value);
+      //   // console.log('Target '+target);
+      // }
+      
+      const needle = document.getElementById("needle");
+      function updateNeedle(val) {
+        needle.style.left = (val/100)+"px";
+        needle.textContent = val;
+      }
+    </script>
+  </body>
+</html>
