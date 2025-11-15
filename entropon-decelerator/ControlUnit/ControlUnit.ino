@@ -63,10 +63,10 @@ uint32_t lastLoopMillis = 0;
 
 void setup() {
   #ifdef ENABLE_SERIAL_LOGGING
-    Serial.begin(115200);
+    Serial.begin(115200); //USB serial for debugging
   #endif
   #ifdef ENABLE_SERIAL_TO_CHAMBER_UNIT
-    Serial1.begin(9600); //RX/TX serial to control unit
+    Serial1.begin(9600); //RX/TX serial to chamber unit
   #endif
 
   #ifdef PIN_PRINTER_TX

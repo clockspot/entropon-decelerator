@@ -60,9 +60,9 @@ PCF8574 can generate interrupt when inputs change, so 1 pin for 2 buttons
 
 // #define PIN_RELAY_DECEL 12
 
-#define PIN_LED_DECEL 13
-#define PIN_LED_RECOVERY 20 //aka DONE in chamber
-#define PIN_LED_STABLE 21 //aka READY in chamber
+#define PIN_LED_DECEL 21 //also relay?
+#define PIN_LED_RECOVERY 20 //aka DONE in chamber - also relay?
+#define PIN_LED_STABLE 13 //aka READY in chamber - also flashes with upload
 
 #define PIN_POT_MAX_DECEL A0 //14 //formerly PIN_POT_MAX_NEG
 #define PIN_POT_POWER A1 //15 //formerly PIN_POT_MAX_POS
